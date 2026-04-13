@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Raksha</string>
+    <string name="shield_notification_title">Raksha is protecting you</string>
+    <string name="shield_notification_body">Tap to open | Tap to deactivate</string>
+    <string name="shield_channel_id">raksha_shield_channel</string>
+    <string name="shield_channel_name">Shield Protection</string>
+    <string name="sos_channel_id">raksha_sos_channel</string>
+    <string name="sos_channel_name">SOS Alerts</string>
+</resources>
