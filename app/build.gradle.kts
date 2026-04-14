@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.coroutines.android)
 
     // Maps
+    implementation(libs.play.services.maps)
     implementation(libs.maps.compose)
     implementation(libs.maps.android.utils)
 
