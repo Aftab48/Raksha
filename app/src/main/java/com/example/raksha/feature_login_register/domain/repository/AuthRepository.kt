@@ -16,6 +16,11 @@ interface AuthRepository {
         otp: String
     ): Result<String>
 
+    suspend fun verifyMobileOtp(
+        registrationId: String,
+        otp: String
+    ): Result<String>
+
     suspend fun completeRegistration(
         registrationId: String
     ): Result<AuthResult>

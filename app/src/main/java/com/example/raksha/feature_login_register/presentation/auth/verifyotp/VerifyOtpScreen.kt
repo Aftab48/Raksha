@@ -37,7 +37,8 @@ fun VerifyOtpRoute(
 
     VerifyOtpScreen(
         uiState = uiState,
-        onOtpChanged = viewModel::onOtpChanged,
+        onEmailOtpChanged = viewModel::onEmailOtpChanged,
+        onMobileOtpChanged = viewModel::onMobileOtpChanged,
         onVerifyClick = viewModel::verifyOtpAndCompleteRegistration,
         onBack = onBack
     )
@@ -46,7 +47,8 @@ fun VerifyOtpRoute(
 @Composable
 private fun VerifyOtpScreen(
     uiState: SignUpUiState,
-    onOtpChanged: (String) -> Unit,
+    onEmailOtpChanged: (String) -> Unit,
+    onMobileOtpChanged: (String) -> Unit,
     onVerifyClick: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -55,15 +57,23 @@ private fun VerifyOtpScreen(
     AuthScreenContainer(
         title = "Verify OTP",
         subtitle = if (pendingRegistration != null) {
-            "Enter the email OTP sent to ${pendingRegistration.maskedEmail} to finish your sign up."
+            "Enter the email and mobile OTP sent to ${pendingRegistration.maskedEmail} and ${pendingRegistration.maskedPhoneNumber} to finish your sign up."
         } else {
             "Your sign up session is missing. Go back and submit the form again."
         }
     ) {
         AuthTextField(
-            value = uiState.otp,
-            onValueChange = onOtpChanged,
+            value = uiState.emailOtp,
+            onValueChange = onEmailOtpChanged,
             label = "Email OTP",
+            keyboardType = KeyboardType.Number,
+            enabled = pendingRegistration != null
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        AuthTextField(
+            value = uiState.mobileOtp,
+            onValueChange = onMobileOtpChanged,
+            label = "Mobile OTP",
             keyboardType = KeyboardType.Number,
             enabled = pendingRegistration != null
         )

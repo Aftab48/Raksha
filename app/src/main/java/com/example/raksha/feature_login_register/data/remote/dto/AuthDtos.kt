@@ -11,7 +11,8 @@ data class RegisterInitResponseDto(
     val message: String,
     val registrationId: String,
     val expiresAt: String,
-    val email: String
+    val email: String,
+    val phoneNumber: String
 )
 
 data class VerifyOtpRequestDto(
@@ -19,7 +20,17 @@ data class VerifyOtpRequestDto(
     val otp: String
 )
 
+data class VerifyMobileOtpRequestDto(
+    val registrationId: String,
+    val otp: String
+)
+
 data class VerifyOtpResponseDto(
+    val msg: String,
+    val emailVerified: Boolean
+)
+
+data class VerifyMobileOtpResponseDto(
     val msg: String,
     val emailVerified: Boolean
 )

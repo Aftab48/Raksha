@@ -7,6 +7,7 @@ import com.example.raksha.feature_login_register.data.remote.dto.ApiErrorRespons
 import com.example.raksha.feature_login_register.data.remote.dto.LoginRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.RegisterCompleteRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.RegisterInitRequestDto
+import com.example.raksha.feature_login_register.data.remote.dto.VerifyMobileOtpRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.VerifyOtpRequestDto
 import com.example.raksha.feature_login_register.data.remote.mapper.toAuthResult
 import com.example.raksha.feature_login_register.data.remote.mapper.toDomain
@@ -47,6 +48,18 @@ class AuthRepositoryImpl @Inject constructor(
     ): Result<String> = safeApiCall {
         authApiService.verifyEmailOtp(
             VerifyOtpRequestDto(
+                registrationId = registrationId,
+                otp = otp
+            )
+        ).msg
+    }
+
+    override suspend fun verifyMobileOtp(
+        registrationId: String,
+        otp: String
+    ): Result<String> =  safeApiCall{
+        authApiService.verifyMobileOtp(
+            VerifyMobileOtpRequestDto(
                 registrationId = registrationId,
                 otp = otp
             )

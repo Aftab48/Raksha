@@ -5,6 +5,8 @@ import com.example.raksha.feature_login_register.data.remote.dto.LoginRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.RegisterCompleteRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.RegisterInitRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.RegisterInitResponseDto
+import com.example.raksha.feature_login_register.data.remote.dto.VerifyMobileOtpRequestDto
+import com.example.raksha.feature_login_register.data.remote.dto.VerifyMobileOtpResponseDto
 import com.example.raksha.feature_login_register.data.remote.dto.VerifyOtpRequestDto
 import com.example.raksha.feature_login_register.data.remote.dto.VerifyOtpResponseDto
 import retrofit2.http.Body
@@ -20,6 +22,11 @@ interface AuthApiService {
     suspend fun verifyEmailOtp(
         @Body request: VerifyOtpRequestDto
     ): VerifyOtpResponseDto
+
+    @POST("auth/register/verify-mobile")
+    suspend fun verifyMobileOtp(
+        @Body request: VerifyMobileOtpRequestDto
+    ): VerifyMobileOtpResponseDto
 
     @POST("auth/register/complete")
     suspend fun completeRegistration(

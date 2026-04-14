@@ -6,6 +6,7 @@ import com.example.raksha.feature_login_register.domain.model.PendingRegistratio
 import com.example.raksha.feature_login_register.domain.usecase.CompleteRegistrationUseCase
 import com.example.raksha.feature_login_register.domain.usecase.RegisterInitUseCase
 import com.example.raksha.feature_login_register.domain.usecase.VerifyEmailOtpUseCase
+import com.example.raksha.feature_login_register.domain.usecase.VerifyMobileOtpUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ data class SignUpUiState(
     val email: String = "",
     val phoneNumber: String = "",
     val password: String = "",
-    val otp: String = "",
+    val emailOtp: String = "",
+    val mobileOtp: String = "",
     val isSubmitting: Boolean = false,
     val isVerifyingOtp: Boolean = false,
     val pendingRegistration: PendingRegistration? = null,
@@ -32,6 +34,7 @@ data class SignUpUiState(
 class SignUpViewModel @Inject constructor(
     private val registerInitUseCase: RegisterInitUseCase,
     private val verifyEmailOtpUseCase: VerifyEmailOtpUseCase,
+    private val verifyMobileOtpUseCase: VerifyMobileOtpUseCase,
     private val completeRegistrationUseCase: CompleteRegistrationUseCase
 ) : ViewModel() {
 
@@ -54,8 +57,12 @@ class SignUpViewModel @Inject constructor(
         _uiState.update { it.copy(password = value, errorMessage = null) }
     }
 
-    fun onOtpChanged(value: String) {
-        _uiState.update { it.copy(otp = value, errorMessage = null) }
+    fun onEmailOtpChanged(value: String) {
+        _uiState.update { it.copy(emailOtp = value, errorMessage = null) }
+    }
+
+    fun onMobileOtpChanged(value: String) {
+        _uiState.update{ it.copy(mobileOtp = value, errorMessage = null)}
     }
 
     fun submitRegistration(onSuccess: () -> Unit) {
@@ -114,7 +121,7 @@ class SignUpViewModel @Inject constructor(
             _uiState.update { it.copy(errorMessage = "Registration session missing. Please sign up again.") }
             return
         }
-        if (currentState.otp.isBlank()) {
+        if (currentState.emailOtp.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Enter the OTP sent to your email") }
             return
         }
@@ -130,24 +137,39 @@ class SignUpViewModel @Inject constructor(
 
             verifyEmailOtpUseCase(
                 registrationId = pendingRegistration.registrationId,
-                otp = currentState.otp.trim()
+                otp = currentState.emailOtp.trim()
             ).fold(
                 onSuccess = {
-                    completeRegistrationUseCase(pendingRegistration.registrationId).fold(
-                        onSuccess = { authResult ->
-                            _uiState.update {
-                                it.copy(
-                                    isVerifyingOtp = false,
-                                    registrationComplete = true,
-                                    infoMessage = authResult.msg ?: "Registration completed successfully"
-                                )
-                            }
+                    verifyMobileOtpUseCase(
+                        registrationId = pendingRegistration.registrationId,
+                        otp = currentState.mobileOtp.trim()
+                    ).fold(
+                        onSuccess = {
+                            completeRegistrationUseCase(pendingRegistration.registrationId).fold(
+                                onSuccess = { authResult ->
+                                    _uiState.update {
+                                        it.copy(
+                                            isVerifyingOtp = false,
+                                            registrationComplete = true,
+                                            infoMessage = authResult.msg ?: "Registration completed successfully"
+                                        )
+                                    }
+                                },
+                                onFailure = { throwable ->
+                                    _uiState.update {
+                                        it.copy(
+                                            isVerifyingOtp = false,
+                                            errorMessage = throwable.message ?: "Could not complete registration"
+                                        )
+                                    }
+                                }
+                            )
                         },
-                        onFailure = { throwable ->
+                        onFailure = {throwable ->
                             _uiState.update {
                                 it.copy(
                                     isVerifyingOtp = false,
-                                    errorMessage = throwable.message ?: "Could not complete registration"
+                                    errorMessage = throwable.message ?: "Mobile OTP verification failed"
                                 )
                             }
                         }
@@ -157,7 +179,7 @@ class SignUpViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isVerifyingOtp = false,
-                            errorMessage = throwable.message ?: "OTP verification failed"
+                            errorMessage = throwable.message ?: "Email OTP verification failed"
                         )
                     }
                 }

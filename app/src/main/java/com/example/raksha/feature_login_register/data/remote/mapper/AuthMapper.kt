@@ -9,7 +9,8 @@ fun RegisterInitResponseDto.toDomain(): PendingRegistration {
         msg = message,
         registrationId = registrationId,
         expiresAt = expiresAt,
-        maskedEmail = email
+        maskedEmail = email,
+        maskedPhoneNumber = phoneNumber
     )
 }
 
