@@ -15,6 +15,7 @@ coroutines = "1.9.0"
 googleMapsCompose = "6.2.1"
 googleMapsServices = "3.8.2"
 playServicesMaps = "19.0.0"
+playServicesLocation = "21.3.0"
 tflite = "2.14.0"
 tfliteSupport = "0.4.4"
 workManager = "2.9.1"
@@ -56,6 +57,7 @@ coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutin
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "googleMapsCompose" }
 maps-android-utils = { group = "com.google.maps.android", name = "android-maps-utils", version = "3.8.2" }
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 # TensorFlow Lite
 tflite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
