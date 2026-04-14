@@ -15,7 +15,7 @@ import com.example.raksha.feature_login_register.presentation.auth.common.AuthFo
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthPrimaryButton
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthScreenContainer
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthTextField
-import com.raksha.app.ui.theme.ErrorRose
+import com.example.raksha.ui.theme.ErrorRose
 
 @Composable
 fun SignUpRoute(

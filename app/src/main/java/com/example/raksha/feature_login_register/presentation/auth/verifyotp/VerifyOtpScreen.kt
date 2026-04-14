@@ -17,8 +17,8 @@ import com.example.raksha.feature_login_register.presentation.auth.common.AuthSc
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthTextField
 import com.example.raksha.feature_login_register.presentation.auth.signup.SignUpUiState
 import com.example.raksha.feature_login_register.presentation.auth.signup.SignUpViewModel
-import com.raksha.app.ui.theme.ErrorRose
-import com.raksha.app.ui.theme.SuccessGreen
+import com.example.raksha.ui.theme.ErrorRose
+import com.example.raksha.ui.theme.SuccessGreen
 
 @Composable
 fun VerifyOtpRoute(

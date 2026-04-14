@@ -1,4 +1,4 @@
-package com.raksha.app.ui.theme
+package com.example.raksha.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
