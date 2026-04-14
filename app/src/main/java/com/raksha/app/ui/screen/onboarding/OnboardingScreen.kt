@@ -205,7 +205,7 @@ private fun ContactsStep(
                 onClick = { showAddDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RakshaShapes.medium,
-                colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = ColorPrimary),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorPrimary),
                 border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder)
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -221,7 +221,7 @@ private fun ContactsStep(
                 onClick = onBack,
                 modifier = Modifier.weight(1f).height(52.dp),
                 shape = RadiusFull,
-                colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = ColorTextSecondary),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorTextSecondary),
                 border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder)
             ) { Text("Back") }
 
