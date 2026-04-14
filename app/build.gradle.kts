@@ -19,8 +19,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Add your Google Maps API key in local.properties as MAPS_API_KEY=...
-        val mapsApiKey = project.findProperty("MAPS_API_KEY")?.toString() ?: ""
+        val mapsApiKey = project.findProperty("GOOGLE_MAPS_API_KEY")?.toString() ?: ""
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }

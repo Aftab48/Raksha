@@ -52,6 +52,12 @@ class AudioThreatDetector @Inject constructor(
 
     fun loadModel(): Boolean {
         return try {
+            // Check if model file exists in assets before attempting to load
+            val assets = context.assets.list("") ?: emptyArray()
+            if (MODEL_FILE !in assets) {
+                Log.w(TAG, "Model file '$MODEL_FILE' not found in assets — audio detection disabled. See assets/MODEL_SETUP.md")
+                return false
+            }
             val modelBuffer = loadModelFile()
             interpreter = Interpreter(modelBuffer)
             Log.d(TAG, "TFLite model loaded successfully")
