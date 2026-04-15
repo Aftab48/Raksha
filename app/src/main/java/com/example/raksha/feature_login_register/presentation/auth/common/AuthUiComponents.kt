@@ -29,7 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.raksha.ui.theme.MutedInk
+import com.example.raksha.ui.theme.*
 
 @Composable
 fun AuthScreenContainer(
@@ -67,7 +67,7 @@ fun AuthScreenContainer(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MutedInk
+                        color = ColorTextPrimary
                     )
                     content()
                 }

@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 data class SignUpUiState(
     val userName: String = "",
     val email: String = "",
-    val phoneNumber: String = "",
+    val phoneNumber: String = "+91",
     val password: String = "",
     val emailOtp: String = "",
     val mobileOtp: String = "",

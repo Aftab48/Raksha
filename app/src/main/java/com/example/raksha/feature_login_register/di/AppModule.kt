@@ -2,6 +2,7 @@ package com.example.raksha.feature_login_register.di
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.example.raksha.core.network.AuthInterceptor
 import com.example.raksha.feature_login_register.data.remote.api.AuthApiService
 import com.example.raksha.feature_login_register.data.repository.AuthRepositoryImpl
 import com.example.raksha.feature_login_register.domain.repository.AuthRepository
@@ -35,12 +36,14 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .build()
     }

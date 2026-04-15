@@ -1,16 +1,12 @@
 package com.example.raksha.feature_login_register.presentation.navigation
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.compose.NavHost
+import androidx.navigation.NavController
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import androidx.navigation.compose.rememberNavController
+import com.example.raksha.feature_login_register.presentation.auth.signin.PostLoginDestination
 import com.example.raksha.feature_login_register.presentation.auth.signin.SignInRoute
 import com.example.raksha.feature_login_register.presentation.auth.signup.SignUpRoute
 import com.example.raksha.feature_login_register.presentation.auth.signup.SignUpViewModel
@@ -23,23 +19,29 @@ object AuthRoutes {
     const val VerifyOtp = "verify_otp"
 }
 
-@Composable
-fun RakshaNavHost(
-    innerPadding: PaddingValues
+fun NavGraphBuilder.authGraph(
+    navController: NavController
 ) {
-    val navController = rememberNavController()
 
-    NavHost(
-        navController = navController,
+    navigation(
         startDestination = AuthRoutes.SignIn,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
+        route = "auth_graph"
     ) {
+
         composable(AuthRoutes.SignIn) {
             SignInRoute(
                 onNavigateToSignUp = {
                     navController.navigate(AuthRoutes.SignUpFlow)
+                },
+                onLoginSuccess = { destination ->
+                    val route = if (destination == PostLoginDestination.MAIN) {
+                        "main_graph"
+                    } else {
+                        "onboarding_graph"
+                    }
+                    navController.navigate(route) {
+                        popUpTo("auth_graph") { inclusive = true }
+                    }
                 }
             )
         }
@@ -48,11 +50,13 @@ fun RakshaNavHost(
             startDestination = AuthRoutes.SignUp,
             route = AuthRoutes.SignUpFlow
         ) {
+
             composable(AuthRoutes.SignUp) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry(AuthRoutes.SignUpFlow)
                 }
                 val viewModel: SignUpViewModel = hiltViewModel(parentEntry)
+
                 SignUpRoute(
                     viewModel = viewModel,
                     onBackToSignIn = { navController.popBackStack() },
@@ -67,6 +71,7 @@ fun RakshaNavHost(
                     navController.getBackStackEntry(AuthRoutes.SignUpFlow)
                 }
                 val viewModel: SignUpViewModel = hiltViewModel(parentEntry)
+
                 VerifyOtpRoute(
                     viewModel = viewModel,
                     onRegistrationComplete = {

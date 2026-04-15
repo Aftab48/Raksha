@@ -17,8 +17,8 @@ import com.example.raksha.feature_login_register.presentation.auth.common.AuthSc
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthTextField
 import com.example.raksha.feature_login_register.presentation.auth.signup.SignUpUiState
 import com.example.raksha.feature_login_register.presentation.auth.signup.SignUpViewModel
-import com.example.raksha.ui.theme.ErrorRose
-import com.example.raksha.ui.theme.SuccessGreen
+import com.example.raksha.ui.theme.ColorDanger
+import com.example.raksha.ui.theme.ColorSafe
 
 @Composable
 fun VerifyOtpRoute(
@@ -78,10 +78,10 @@ private fun VerifyOtpScreen(
             enabled = pendingRegistration != null
         )
         uiState.errorMessage?.let {
-            Text(text = it, color = ErrorRose, style = MaterialTheme.typography.bodyLarge)
+            Text(text = it, color = ColorDanger, style = MaterialTheme.typography.bodyLarge)
         }
         uiState.infoMessage?.let {
-            Text(text = it, color = SuccessGreen, style = MaterialTheme.typography.bodyLarge)
+            Text(text = it, color = ColorSafe, style = MaterialTheme.typography.bodyLarge)
         }
         Spacer(modifier = Modifier.height(8.dp))
         AuthPrimaryButton(

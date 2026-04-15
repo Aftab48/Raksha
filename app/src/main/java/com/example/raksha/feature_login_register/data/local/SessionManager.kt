@@ -27,4 +27,10 @@ class SessionManager @Inject constructor(
             preferences[authTokenKey] = token
         }
     }
+
+    suspend fun clearToken() {
+        context.dataStore.edit {
+            it.remove(authTokenKey)
+        }
+    }
 }

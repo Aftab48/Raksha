@@ -15,8 +15,7 @@ import com.example.raksha.feature_login_register.presentation.auth.common.AuthFo
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthPrimaryButton
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthScreenContainer
 import com.example.raksha.feature_login_register.presentation.auth.common.AuthTextField
-import com.example.raksha.ui.theme.ErrorRose
-
+import com.example.raksha.ui.theme.*
 @Composable
 fun SignUpRoute(
     onBackToSignIn: () -> Unit,
@@ -53,7 +52,7 @@ fun SignUpRoute(
             isPassword = true
         )
         uiState.errorMessage?.let {
-            Text(text = it, color = ErrorRose, style = MaterialTheme.typography.bodyLarge)
+            Text(text = it, color = ColorDanger, style = MaterialTheme.typography.bodyLarge)
         }
         Spacer(modifier = Modifier.height(8.dp))
         AuthPrimaryButton(
