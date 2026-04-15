@@ -60,6 +60,8 @@ fun OnboardingScreen(
                 )
                 2 -> ContactsStep(
                     contacts = state.contacts,
+                    syncMessage = state.contactSyncMessage,
+                    syncError = state.contactSyncError,
                     onAddContact = viewModel::addContact,
                     onRemoveContact = viewModel::removeContact,
                     onNext = viewModel::nextStep,
@@ -176,6 +178,8 @@ private fun NamePhoneStep(
 @Composable
 private fun ContactsStep(
     contacts: List<com.raksha.app.data.local.entity.TrustedContactEntity>,
+    syncMessage: String?,
+    syncError: String?,
     onAddContact: (String, String) -> Unit,
     onRemoveContact: (com.raksha.app.data.local.entity.TrustedContactEntity) -> Unit,
     onNext: () -> Unit,
@@ -195,6 +199,18 @@ private fun ContactsStep(
             "Add up to 5 people who will be alerted in an emergency. Minimum 1 required.",
             style = RakshaTypography.bodyMedium
         )
+        syncError?.let {
+            Text(
+                text = it,
+                style = RakshaTypography.bodyMedium.copy(color = ColorDanger)
+            )
+        }
+        syncMessage?.let {
+            Text(
+                text = it,
+                style = RakshaTypography.bodyMedium.copy(color = ColorSafe)
+            )
+        }
 
         contacts.forEach { contact ->
             ContactCard(contact = contact, onDelete = onRemoveContact)

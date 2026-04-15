@@ -5,3 +5,6 @@ sdk.dir=C\:\\Users\\YourUsername\\AppData\\Local\\Android\\Sdk
 
 # Google Maps API Key (get from Google Cloud Console)
 GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY_HERE
+
+# Backend API URL
+RAKSHA_BASE_URL=http://localhost:3000/api/v1/

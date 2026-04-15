@@ -20,8 +20,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val mapsApiKey = project.findProperty("GOOGLE_MAPS_API_KEY")?.toString() ?: ""
+        val baseUrl = project.findProperty("RAKSHA_BASE_URL")?.toString()
+            ?: "http://10.0.2.2:3000/api/v1/"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
     }
 
     buildTypes {
@@ -56,6 +59,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splash.screen)
@@ -104,6 +108,9 @@ dependencies {
 
     // JSON
     implementation(libs.gson)
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     debugImplementation(libs.androidx.ui.tooling)
 }

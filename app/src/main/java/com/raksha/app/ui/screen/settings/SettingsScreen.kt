@@ -108,6 +108,24 @@ fun SettingsScreen(
                     }
                 }
             }
+            uiState.contactSyncError?.let { error ->
+                item {
+                    Text(
+                        text = error,
+                        style = RakshaTypography.bodyMedium.copy(color = ColorDanger),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            uiState.contactSyncMessage?.let { message ->
+                item {
+                    Text(
+                        text = message,
+                        style = RakshaTypography.bodyMedium.copy(color = ColorSafe),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+            }
 
             if (contacts.isEmpty()) {
                 item {

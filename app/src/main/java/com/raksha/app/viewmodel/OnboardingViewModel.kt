@@ -3,11 +3,13 @@ package com.raksha.app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raksha.app.data.local.entity.TrustedContactEntity
+import com.raksha.app.feature_login_register.data.local.SessionManager
 import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,6 +20,8 @@ data class OnboardingUiState(
     val contacts: List<TrustedContactEntity> = emptyList(),
     val nameError: String? = null,
     val phoneError: String? = null,
+    val contactSyncMessage: String? = null,
+    val contactSyncError: String? = null,
     val isComplete: Boolean = false,
     val isSaving: Boolean = false
 )
@@ -25,18 +29,29 @@ data class OnboardingUiState(
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val userRepository: UserRepository,
-    private val contactRepository: TrustedContactRepository
+    private val contactRepository: TrustedContactRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState
 
+    init {
+        viewModelScope.launch {
+            sessionManager.lastAuthPhone.first()?.takeIf { it.isNotBlank() }?.let { phone ->
+                _uiState.value = _uiState.value.copy(phone = phone)
+            }
+            refreshContacts()
+            syncContactsFromRemote()
+        }
+    }
+
     fun updateName(name: String) {
-        _uiState.value = _uiState.value.copy(name = name, nameError = null)
+        _uiState.value = _uiState.value.copy(name = name, nameError = null, contactSyncError = null)
     }
 
     fun updatePhone(phone: String) {
-        _uiState.value = _uiState.value.copy(phone = phone, phoneError = null)
+        _uiState.value = _uiState.value.copy(phone = phone, phoneError = null, contactSyncError = null)
     }
 
     fun nextStep() {
@@ -56,10 +71,10 @@ class OnboardingViewModel @Inject constructor(
             }
             2 -> {
                 if (state.contacts.isEmpty()) return // enforce minimum 1 contact
-                _uiState.value = state.copy(currentStep = 3)
+                _uiState.value = state.copy(currentStep = 3, contactSyncError = null)
             }
             else -> {
-                _uiState.value = state.copy(currentStep = state.currentStep + 1)
+                _uiState.value = state.copy(currentStep = state.currentStep + 1, contactSyncError = null)
             }
         }
     }
@@ -79,23 +94,79 @@ class OnboardingViewModel @Inject constructor(
     fun addContact(name: String, phone: String) {
         viewModelScope.launch {
             if (name.isBlank() || phone.isBlank()) return@launch
-            val added = contactRepository.addContact(name.trim(), phone.trim())
-            if (added) refreshContacts()
+            contactRepository.addContact(name.trim(), phone.trim()).fold(
+                onSuccess = { added ->
+                    if (!added) {
+                        _uiState.value = _uiState.value.copy(
+                            contactSyncError = "You can add up to 5 trusted contacts only",
+                            contactSyncMessage = null
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            contactSyncMessage = "Trusted contact saved",
+                            contactSyncError = null
+                        )
+                    }
+                },
+                onFailure = { throwable ->
+                    val message = throwable.message ?: "Couldn't save trusted contact"
+                    if (message.startsWith("Saved locally")) {
+                        _uiState.value = _uiState.value.copy(
+                            contactSyncMessage = message,
+                            contactSyncError = null
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            contactSyncError = message,
+                            contactSyncMessage = null
+                        )
+                    }
+                }
+            )
+            refreshContacts()
         }
     }
 
     fun removeContact(contact: TrustedContactEntity) {
         viewModelScope.launch {
-            contactRepository.deleteContact(contact)
+            contactRepository.deleteContact(contact).fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        contactSyncMessage = "Trusted contact removed",
+                        contactSyncError = null
+                    )
+                },
+                onFailure = { throwable ->
+                    val message = throwable.message ?: "Couldn't remove trusted contact"
+                    if (message.startsWith("Removed locally")) {
+                        _uiState.value = _uiState.value.copy(
+                            contactSyncMessage = message,
+                            contactSyncError = null
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            contactSyncError = message,
+                            contactSyncMessage = null
+                        )
+                    }
+                }
+            )
             refreshContacts()
         }
     }
 
-    private fun refreshContacts() {
-        viewModelScope.launch {
-            val contacts = contactRepository.getContactsOnce()
-            _uiState.value = _uiState.value.copy(contacts = contacts)
+    private suspend fun refreshContacts() {
+        val contacts = contactRepository.getContactsOnce()
+        _uiState.value = _uiState.value.copy(contacts = contacts)
+    }
+
+    private suspend fun syncContactsFromRemote() {
+        contactRepository.refreshContactsFromRemote().onFailure { throwable ->
+            _uiState.value = _uiState.value.copy(
+                contactSyncError = throwable.message ?: "Couldn't sync trusted contacts"
+            )
         }
+        refreshContacts()
     }
 
     fun completeOnboarding() {

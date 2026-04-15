@@ -4,17 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import com.raksha.app.feature_login_register.data.local.SessionManager
 import com.raksha.app.repository.UserRepository
 import com.raksha.app.ui.navigation.RakshaNavGraph
 import com.raksha.app.ui.navigation.Screen
 import com.raksha.app.ui.theme.RakshaTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
@@ -24,6 +22,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var userRepository: UserRepository
 
+    @Inject
+    lateinit var sessionManager: SessionManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         var keepSplash = true
         val splashScreen = installSplashScreen()
@@ -32,13 +33,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Determine start destination synchronously before showing content
-        val isOnboardingComplete = runBlocking {
-            userRepository.isOnboardingComplete.first()
+        val (authToken, isOnboardingComplete) = runBlocking {
+            val token = sessionManager.authToken.first()
+            val onboardingComplete = userRepository.isOnboardingComplete.first()
+            token to onboardingComplete
         }
         keepSplash = false
 
-        val startDestination = if (isOnboardingComplete) Screen.Home.route else Screen.Onboarding.route
+        val startDestination = when {
+            authToken.isNullOrBlank() -> Screen.AuthGraph.route
+            isOnboardingComplete -> Screen.Home.route
+            else -> Screen.Onboarding.route
+        }
 
         setContent {
             RakshaTheme {

@@ -20,7 +20,9 @@ data class SettingsUiState(
     val user: UserEntity? = null,
     val showClearHistoryDialog: Boolean = false,
     val showAddContactDialog: Boolean = false,
-    val canAddMoreContacts: Boolean = true
+    val canAddMoreContacts: Boolean = true,
+    val contactSyncMessage: String? = null,
+    val contactSyncError: String? = null
 )
 
 @HiltViewModel
@@ -42,6 +44,7 @@ class SettingsViewModel @Inject constructor(
     init {
         loadUser()
         observeContactCount()
+        syncContactsFromRemote()
     }
 
     private fun loadUser() {
@@ -61,13 +64,65 @@ class SettingsViewModel @Inject constructor(
 
     fun addContact(name: String, phone: String) {
         viewModelScope.launch {
-            contactRepository.addContact(name.trim(), phone.trim())
-            _uiState.value = _uiState.value.copy(showAddContactDialog = false)
+            contactRepository.addContact(name.trim(), phone.trim()).fold(
+                onSuccess = { added ->
+                    _uiState.value = if (!added) {
+                        _uiState.value.copy(
+                            contactSyncError = "You can add up to 5 trusted contacts only",
+                            contactSyncMessage = null
+                        )
+                    } else {
+                        _uiState.value.copy(
+                            showAddContactDialog = false,
+                            contactSyncMessage = "Trusted contact saved",
+                            contactSyncError = null
+                        )
+                    }
+                },
+                onFailure = { throwable ->
+                    val message = throwable.message ?: "Couldn't save trusted contact"
+                    _uiState.value = if (message.startsWith("Saved locally")) {
+                        _uiState.value.copy(
+                            showAddContactDialog = false,
+                            contactSyncMessage = message,
+                            contactSyncError = null
+                        )
+                    } else {
+                        _uiState.value.copy(
+                            contactSyncError = message,
+                            contactSyncMessage = null
+                        )
+                    }
+                }
+            )
         }
     }
 
     fun deleteContact(contact: TrustedContactEntity) {
-        viewModelScope.launch { contactRepository.deleteContact(contact) }
+        viewModelScope.launch {
+            contactRepository.deleteContact(contact).fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        contactSyncMessage = "Trusted contact removed",
+                        contactSyncError = null
+                    )
+                },
+                onFailure = { throwable ->
+                    val message = throwable.message ?: "Couldn't remove trusted contact"
+                    _uiState.value = if (message.startsWith("Removed locally")) {
+                        _uiState.value.copy(
+                            contactSyncMessage = message,
+                            contactSyncError = null
+                        )
+                    } else {
+                        _uiState.value.copy(
+                            contactSyncError = message,
+                            contactSyncMessage = null
+                        )
+                    }
+                }
+            )
+        }
     }
 
     fun showAddContactDialog() {
@@ -75,7 +130,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun dismissAddContactDialog() {
-        _uiState.value = _uiState.value.copy(showAddContactDialog = false)
+        _uiState.value = _uiState.value.copy(showAddContactDialog = false, contactSyncError = null)
     }
 
     fun showClearHistoryDialog() {
@@ -90,6 +145,16 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             sosRepository.clearHistory()
             _uiState.value = _uiState.value.copy(showClearHistoryDialog = false)
+        }
+    }
+
+    private fun syncContactsFromRemote() {
+        viewModelScope.launch {
+            contactRepository.refreshContactsFromRemote().onFailure { throwable ->
+                _uiState.value = _uiState.value.copy(
+                    contactSyncError = throwable.message ?: "Couldn't sync trusted contacts"
+                )
+            }
         }
     }
 }

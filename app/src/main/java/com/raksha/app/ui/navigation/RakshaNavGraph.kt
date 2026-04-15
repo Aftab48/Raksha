@@ -6,6 +6,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.raksha.app.feature_login_register.presentation.navigation.authGraph
 import com.raksha.app.ui.screen.home.HomeScreen
 import com.raksha.app.ui.screen.onboarding.OnboardingScreen
 import com.raksha.app.ui.screen.route.RouteScreen
@@ -13,6 +14,7 @@ import com.raksha.app.ui.screen.settings.SettingsScreen
 import com.raksha.app.ui.screen.sos.ActiveSosScreen
 
 sealed class Screen(val route: String) {
+    object AuthGraph : Screen("auth_graph")
     object Onboarding : Screen("onboarding")
     object Home : Screen("home")
     object Route : Screen("route")
@@ -31,6 +33,8 @@ fun RakshaNavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
+        authGraph(navController)
+
         composable(Screen.Onboarding.route) {
             OnboardingScreen(
                 onComplete = {

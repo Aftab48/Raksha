@@ -27,6 +27,7 @@ class UserRepository @Inject constructor(
     }
 
     suspend fun saveUser(name: String, phone: String) {
+        userDao.clearUser()
         userDao.insertUser(UserEntity(name = name, phone = phone))
     }
 
