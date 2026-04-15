@@ -1,29 +1,31 @@
 package com.raksha.app.repository
 
-import android.content.Context
 import com.google.android.gms.maps.model.LatLng
 import com.raksha.app.data.assets.NcrbDataSource
 import com.raksha.app.utils.RouteScorer
-import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
-import javax.inject.Inject
-import javax.inject.Singleton
 
 data class ScoredRoute(
     val name: String,
-    val safetyScore: Double,        // 0.0–1.0, lower = safer
+    val safetyScore: Double, // 0.0-1.0, lower = safer
     val distanceMeters: Int,
     val durationSeconds: Int,
     val polylinePoints: List<LatLng>,
     val overview: String
 )
 
+class DirectionsApiException(
+    val userMessage: String,
+    val debugDetails: String
+) : Exception(userMessage)
+
 @Singleton
 class RouteRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val ncrbDataSource: NcrbDataSource,
     private val routeScorer: RouteScorer
 ) {
@@ -40,14 +42,31 @@ class RouteRepository @Inject constructor(
             val url = buildDirectionsUrl(origin, destination, apiKey)
             val response = URL(url).readText()
             val json = JSONObject(response)
-            val status = json.getString("status")
+            val status = json.optString("status")
+
             if (status != "OK") {
-                return@withContext Result.failure(Exception("Directions API error: $status"))
+                val errorMessage = json.optString("error_message").takeIf { it.isNotBlank() }
+                return@withContext Result.failure(
+                    buildDirectionsApiException(
+                        status = status,
+                        errorMessage = errorMessage,
+                        origin = origin,
+                        destination = destination
+                    )
+                )
             }
 
             val routes = json.getJSONArray("routes")
-            val scoredRoutes = mutableListOf<ScoredRoute>()
+            if (routes.length() == 0) {
+                return@withContext Result.failure(
+                    DirectionsApiException(
+                        userMessage = "No routes found for this destination.",
+                        debugDetails = "Directions status=OK; routes=[]"
+                    )
+                )
+            }
 
+            val scoredRoutes = mutableListOf<ScoredRoute>()
             for (i in 0 until routes.length()) {
                 val route = routes.getJSONObject(i)
                 val leg = route.getJSONArray("legs").getJSONObject(0)
@@ -64,7 +83,6 @@ class RouteRepository @Inject constructor(
 
                 val score = routeScorer.score(points, distance, ncrbDataSource)
                 val latLngPoints = points.map { LatLng(it.first, it.second) }
-
                 scoredRoutes.add(
                     ScoredRoute(
                         name = summary.ifBlank { "Route ${i + 1}" },
@@ -77,11 +95,44 @@ class RouteRepository @Inject constructor(
                 )
             }
 
-            val top2 = scoredRoutes.sortedBy { it.safetyScore }.take(2)
-            Result.success(top2)
+            Result.success(scoredRoutes.sortedBy { it.safetyScore }.take(2))
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun buildDirectionsApiException(
+        status: String,
+        errorMessage: String?,
+        origin: LatLng,
+        destination: LatLng
+    ): DirectionsApiException {
+        val normalizedStatus = status.uppercase().ifBlank { "UNKNOWN_STATUS" }
+        val userMessage = when (normalizedStatus) {
+            "REQUEST_DENIED" ->
+                "Google Maps request was denied. Check Directions API enablement and API key restrictions."
+            "OVER_QUERY_LIMIT" ->
+                "Google Maps quota was exceeded. Try again shortly or review quota limits."
+            "ZERO_RESULTS" ->
+                "No driving route was found for this destination."
+            "INVALID_REQUEST", "NOT_FOUND" ->
+                "Google Maps could not understand this route request. Try a more specific destination."
+            "UNKNOWN_ERROR" ->
+                "Google Maps returned a temporary error. Please try again."
+            else ->
+                "Could not fetch routes from Google Maps right now."
+        }
+
+        val debugDetails = buildString {
+            append("Directions status=").append(normalizedStatus)
+            if (!errorMessage.isNullOrBlank()) {
+                append("; error_message=").append(errorMessage)
+            }
+            append("; origin=").append(origin.latitude).append(",").append(origin.longitude)
+            append("; destination=").append(destination.latitude).append(",").append(destination.longitude)
+        }
+
+        return DirectionsApiException(userMessage = userMessage, debugDetails = debugDetails)
     }
 
     private fun buildDirectionsUrl(origin: LatLng, dest: LatLng, apiKey: String): String =
