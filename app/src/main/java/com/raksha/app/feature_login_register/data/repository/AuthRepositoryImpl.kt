@@ -1,6 +1,7 @@
 package com.raksha.app.feature_login_register.data.repository
 
 import com.google.gson.Gson
+import com.raksha.app.BuildConfig
 import com.raksha.app.feature_login_register.data.local.SessionManager
 import com.raksha.app.feature_login_register.data.remote.api.AuthApiService
 import com.raksha.app.feature_login_register.data.remote.dto.ApiErrorResponseDto
@@ -102,7 +103,7 @@ class AuthRepositoryImpl @Inject constructor(
 
                 Result.failure(Exception(apiMessage ?: "Server request failed"))
             } catch (exception: IOException) {
-                Result.failure(Exception("Could not connect to the server. Make sure the backend is running on localhost:3000"))
+                Result.failure(Exception("Could not connect to the server at ${BuildConfig.BASE_URL}"))
             } catch (exception: Exception) {
                 Result.failure(exception)
             }

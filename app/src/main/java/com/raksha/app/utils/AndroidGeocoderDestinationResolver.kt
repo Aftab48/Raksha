@@ -46,6 +46,32 @@ class AndroidGeocoderDestinationResolver @Inject constructor(
             )
         }
 
+    override suspend fun suggest(query: String, near: LatLng?): List<DestinationSuggestion> =
+        withContext(Dispatchers.IO) {
+            val normalizedQuery = query.trim()
+            if (normalizedQuery.length < MIN_QUERY_LENGTH || !Geocoder.isPresent()) {
+                return@withContext emptyList()
+            }
+
+            runCatching {
+                val geocoder = Geocoder(context, Locale.getDefault())
+                getAddresses(geocoder, normalizedQuery, near)
+                    .mapNotNull { address ->
+                        val label = address.getAddressLine(0)?.trim().orEmpty()
+                        if (label.isBlank()) {
+                            null
+                        } else {
+                            DestinationSuggestion(
+                                label = label,
+                                latLng = LatLng(address.latitude, address.longitude)
+                            )
+                        }
+                    }
+                    .distinctBy { it.label.lowercase(Locale.getDefault()) }
+                    .take(MAX_RESULTS)
+            }.getOrDefault(emptyList())
+        }
+
     @Suppress("DEPRECATION")
     private fun getAddresses(
         geocoder: Geocoder,
@@ -71,5 +97,6 @@ class AndroidGeocoderDestinationResolver @Inject constructor(
     private companion object {
         const val MAX_RESULTS = 5
         const val SEARCH_RADIUS_DEGREES = 0.6
+        const val MIN_QUERY_LENGTH = 3
     }
 }

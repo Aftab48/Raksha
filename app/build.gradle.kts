@@ -1,9 +1,25 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+}
+
+val localProperties = Properties().apply {
+    val localPropsFile = rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        localPropsFile.inputStream().use { load(it) }
+    }
+}
+
+fun resolveConfigValue(key: String, defaultValue: String = ""): String {
+    return project.findProperty(key)?.toString()
+        ?: localProperties.getProperty(key)
+        ?: System.getenv(key)
+        ?: defaultValue
 }
 
 android {
@@ -19,9 +35,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val mapsApiKey = project.findProperty("GOOGLE_MAPS_API_KEY")?.toString() ?: ""
-        val baseUrl = project.findProperty("RAKSHA_BASE_URL")?.toString()
-            ?: "http://10.0.2.2:3000/api/v1/"
+        val mapsApiKey = resolveConfigValue("GOOGLE_MAPS_API_KEY", "")
+        val baseUrl = resolveConfigValue("RAKSHA_BASE_URL", "http://10.0.2.2:3000/api/v1/")
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")

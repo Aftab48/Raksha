@@ -13,14 +13,16 @@ import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
 import com.raksha.app.service.ShieldForegroundService
 import com.raksha.app.utils.LocationUtils
+import com.raksha.app.utils.PermissionUtils
 import com.raksha.app.utils.SmsUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Instant
+import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.time.Instant
-import javax.inject.Inject
 
 data class HomeUiState(
     val shieldActive: Boolean = false,
@@ -29,7 +31,9 @@ data class HomeUiState(
     val sosTriggerActive: Boolean = false,
     val activeSosEventId: Int? = null,
     val hasMinimumContacts: Boolean = false,
-    val userName: String = ""
+    val userName: String = "",
+    val statusMessage: String? = null,
+    val isSosInProgress: Boolean = false
 )
 
 @HiltViewModel
@@ -78,19 +82,22 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val location: Location? = try {
                 locationUtils.getCurrentLocation() ?: locationUtils.getLastKnownLocation()
-            } catch (e: Exception) { null }
+            } catch (_: Exception) {
+                null
+            }
 
             location?.let {
-                _uiState.value = _uiState.value.copy(
-                    currentLocation = LatLng(it.latitude, it.longitude)
-                )
+                _uiState.value = _uiState.value.copy(currentLocation = LatLng(it.latitude, it.longitude))
             }
         }
     }
 
+    fun clearStatusMessage() {
+        _uiState.value = _uiState.value.copy(statusMessage = null)
+    }
+
     fun toggleShield() {
-        val current = _uiState.value.shieldActive
-        if (current) {
+        if (_uiState.value.shieldActive) {
             deactivateShield()
         } else {
             activateShield()
@@ -98,24 +105,57 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun activateShield() {
-        val contactCount = _uiState.value.hasMinimumContacts
-        if (!contactCount) return
+        if (!_uiState.value.hasMinimumContacts) {
+            _uiState.value = _uiState.value.copy(
+                statusMessage = "Add at least one trusted contact to activate Shield."
+            )
+            return
+        }
+
+        if (!PermissionUtils.hasShieldPermissions(context)) {
+            _uiState.value = _uiState.value.copy(
+                statusMessage = "Microphone permission is required to activate Shield."
+            )
+            return
+        }
 
         context.startForegroundService(ShieldForegroundService.startIntent(context))
-        _uiState.value = _uiState.value.copy(shieldActive = true)
+        _uiState.value = _uiState.value.copy(shieldActive = true, statusMessage = "Activating Shield...")
+
+        viewModelScope.launch {
+            delay(1200L)
+            val running = ShieldForegroundService.isRunning
+            _uiState.value = _uiState.value.copy(
+                shieldActive = running,
+                statusMessage = if (running) {
+                    "Shield is active."
+                } else {
+                    "Shield could not start. Verify model setup and microphone permission."
+                }
+            )
+        }
     }
 
     private fun deactivateShield() {
         context.startService(ShieldForegroundService.stopIntent(context))
-        _uiState.value = _uiState.value.copy(shieldActive = false)
+        _uiState.value = _uiState.value.copy(
+            shieldActive = false,
+            statusMessage = "Shield deactivated."
+        )
     }
 
     fun triggerManualSos() {
-        viewModelScope.launch {
-            try {
-                val location = locationUtils.getCurrentLocation()
-                    ?: locationUtils.getLastKnownLocation()
+        if (!PermissionUtils.hasSosPermissions(context)) {
+            _uiState.value = _uiState.value.copy(
+                statusMessage = "Location, SMS, and phone call permissions are required for SOS."
+            )
+            return
+        }
 
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSosInProgress = true, statusMessage = "Triggering SOS...")
+            try {
+                val location = locationUtils.getCurrentLocation() ?: locationUtils.getLastKnownLocation()
                 val lat = location?.latitude ?: 0.0
                 val lng = location?.longitude ?: 0.0
                 val timestamp = Instant.now().toString()
@@ -129,7 +169,6 @@ class HomeViewModel @Inject constructor(
 
                 val contacts = contactRepository.getContactsOnce()
                 val user = userRepository.getUserOnce()
-
                 smsUtils.sendSos(
                     phoneNumbers = contacts.map { it.phone },
                     userName = user?.name ?: "User",
@@ -139,7 +178,6 @@ class HomeViewModel @Inject constructor(
                     confidenceScore = null
                 )
 
-                // Auto-dial 112
                 val callIntent = Intent(Intent.ACTION_CALL).apply {
                     data = android.net.Uri.parse("tel:112")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -148,11 +186,15 @@ class HomeViewModel @Inject constructor(
 
                 _uiState.value = _uiState.value.copy(
                     sosTriggerActive = true,
-                    activeSosEventId = eventId.toInt()
+                    activeSosEventId = eventId.toInt(),
+                    statusMessage = "SOS triggered. Contacting emergency services...",
+                    isSosInProgress = false
                 )
-
             } catch (e: Exception) {
-                // Log failure silently — retry handled elsewhere
+                _uiState.value = _uiState.value.copy(
+                    isSosInProgress = false,
+                    statusMessage = e.message ?: "Could not trigger SOS. Please retry."
+                )
             }
         }
     }

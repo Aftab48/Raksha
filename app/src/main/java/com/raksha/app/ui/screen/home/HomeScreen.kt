@@ -1,28 +1,68 @@
 package com.raksha.app.ui.screen.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.maps.android.compose.*
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.TileOverlay
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
 import com.google.maps.android.heatmaps.HeatmapTileProvider
 import com.google.maps.android.heatmaps.WeightedLatLng
 import com.raksha.app.data.assets.NcrbDistrict
 import com.raksha.app.ui.component.ShieldToggle
 import com.raksha.app.ui.component.SosButton
-import com.raksha.app.ui.theme.*
+import com.raksha.app.ui.theme.ColorBackground
+import com.raksha.app.ui.theme.ColorDanger
+import com.raksha.app.ui.theme.ColorPrimary
+import com.raksha.app.ui.theme.ColorSurface
+import com.raksha.app.ui.theme.ColorSurfaceElevated
+import com.raksha.app.ui.theme.ColorTextPrimary
+import com.raksha.app.ui.theme.ColorTextSecondary
+import com.raksha.app.ui.theme.ColorWarning
+import com.raksha.app.ui.theme.RadiusFull
+import com.raksha.app.ui.theme.RakshaShapes
+import com.raksha.app.ui.theme.RakshaTypography
 import com.raksha.app.utils.RouteScorer
 import com.raksha.app.viewmodel.HomeViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
@@ -38,6 +78,12 @@ fun HomeScreen(
         viewModel.refreshShieldState()
     }
 
+    LaunchedEffect(state.currentLocation) {
+        if (state.currentLocation == null) {
+            viewModel.fetchCurrentLocation()
+        }
+    }
+
     LaunchedEffect(state.sosTriggerActive, state.activeSosEventId) {
         if (state.sosTriggerActive && state.activeSosEventId != null) {
             onSosTriggered(state.activeSosEventId!!)
@@ -45,15 +91,31 @@ fun HomeScreen(
         }
     }
 
-    val defaultLocation = LatLng(28.6139, 77.2090) // New Delhi
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(
-            state.currentLocation ?: defaultLocation, 13f
-        )
+    LaunchedEffect(state.statusMessage) {
+        if (!state.statusMessage.isNullOrBlank()) {
+            delay(4500L)
+            viewModel.clearStatusMessage()
+        }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(ColorBackground)) {
-        // Full screen map
+    val defaultLocation = LatLng(28.6139, 77.2090)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(state.currentLocation ?: defaultLocation, 13f)
+    }
+
+    LaunchedEffect(state.currentLocation) {
+        state.currentLocation?.let { loc ->
+            runCatching {
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(loc, 13f), 700)
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ColorBackground)
+    ) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
@@ -63,12 +125,10 @@ fun HomeScreen(
             ),
             uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false)
         ) {
-            // Heatmap overlay
             if (state.heatmapDistricts.isNotEmpty()) {
                 HeatmapOverlay(districts = state.heatmapDistricts)
             }
 
-            // Current location marker
             state.currentLocation?.let { loc ->
                 Marker(
                     state = rememberMarkerState(position = loc),
@@ -77,7 +137,6 @@ fun HomeScreen(
             }
         }
 
-        // Top bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -102,7 +161,6 @@ fun HomeScreen(
             }
         }
 
-        // Bottom controls
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -110,9 +168,21 @@ fun HomeScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Navigate Safely button
+            state.statusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = RakshaTypography.bodyMedium.copy(
+                        color = if (state.isSosInProgress) ColorPrimary else ColorWarning
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp)
+                        .background(ColorSurface.copy(alpha = 0.9f), RakshaShapes.medium)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+
             Button(
                 onClick = onNavigateSafely,
                 modifier = Modifier
@@ -133,7 +203,9 @@ fun HomeScreen(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -148,6 +220,13 @@ fun HomeScreen(
                     isActive = state.shieldActive
                 )
             }
+
+            Text(
+                text = "Press and hold SOS for 1.5 seconds",
+                style = RakshaTypography.labelMedium,
+                color = ColorTextSecondary,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
 
             if (!state.hasMinimumContacts) {
                 Text(

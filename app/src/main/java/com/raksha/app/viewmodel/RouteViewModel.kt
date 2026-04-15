@@ -8,11 +8,14 @@ import com.raksha.app.BuildConfig
 import com.raksha.app.repository.DirectionsApiException
 import com.raksha.app.repository.RouteRepository
 import com.raksha.app.repository.ScoredRoute
+import com.raksha.app.utils.DestinationSuggestion
 import com.raksha.app.utils.DestinationResolutionResult
 import com.raksha.app.utils.DestinationResolver
 import com.raksha.app.utils.LocationUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -40,11 +43,19 @@ class RouteViewModel @Inject constructor(
     private val _destinationQuery = MutableStateFlow("")
     val destinationQuery: StateFlow<String> = _destinationQuery
 
+    private val _destinationSuggestions = MutableStateFlow<List<DestinationSuggestion>>(emptyList())
+    val destinationSuggestions: StateFlow<List<DestinationSuggestion>> = _destinationSuggestions
+
+    private val _selectedDestination = MutableStateFlow<LatLng?>(null)
+    val selectedDestination: StateFlow<LatLng?> = _selectedDestination
+
     private val _searchError = MutableStateFlow<String?>(null)
     val searchError: StateFlow<String?> = _searchError
 
     private val _currentLocation = MutableStateFlow<LatLng?>(null)
     val currentLocation: StateFlow<LatLng?> = _currentLocation
+
+    private var suggestionsJob: Job? = null
 
     init {
         fetchLocation()
@@ -63,9 +74,22 @@ class RouteViewModel @Inject constructor(
 
     fun updateDestinationQuery(query: String) {
         _destinationQuery.value = query
+        _selectedDestination.value = null
         if (_searchError.value != null) {
             _searchError.value = null
         }
+        updateSuggestions(query)
+    }
+
+    fun selectSuggestion(suggestion: DestinationSuggestion) {
+        _destinationQuery.value = suggestion.label
+        _selectedDestination.value = suggestion.latLng
+        _destinationSuggestions.value = emptyList()
+        _searchError.value = null
+    }
+
+    fun dismissSuggestions() {
+        _destinationSuggestions.value = emptyList()
     }
 
     fun searchRoutes() {
@@ -85,7 +109,16 @@ class RouteViewModel @Inject constructor(
         }
 
         _searchError.value = null
+        _destinationSuggestions.value = emptyList()
         _uiState.value = RouteUiState.Loading
+
+        val selected = _selectedDestination.value
+        if (selected != null) {
+            viewModelScope.launch {
+                searchRoutesForDestination(origin, selected, query)
+            }
+            return
+        }
 
         viewModelScope.launch {
             when (val destinationResult = destinationResolver.resolve(query, origin)) {
@@ -113,7 +146,24 @@ class RouteViewModel @Inject constructor(
     fun clearRoutes() {
         _uiState.value = RouteUiState.Idle
         _destinationQuery.value = ""
+        _destinationSuggestions.value = emptyList()
+        _selectedDestination.value = null
         _searchError.value = null
+    }
+
+    private fun updateSuggestions(query: String) {
+        suggestionsJob?.cancel()
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.length < 3) {
+            _destinationSuggestions.value = emptyList()
+            return
+        }
+
+        suggestionsJob = viewModelScope.launch {
+            delay(300L)
+            val suggestions = destinationResolver.suggest(normalizedQuery, _currentLocation.value)
+            _destinationSuggestions.value = suggestions
+        }
     }
 
     private suspend fun searchRoutesForDestination(origin: LatLng, destination: LatLng, query: String) {
@@ -131,6 +181,7 @@ class RouteViewModel @Inject constructor(
                     RouteUiState.Error(message = message)
                 } else {
                     _searchError.value = null
+                    _selectedDestination.value = destination
                     RouteUiState.Success(routes)
                 }
             },

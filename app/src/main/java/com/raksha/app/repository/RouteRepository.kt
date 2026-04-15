@@ -73,16 +73,16 @@ class RouteRepository @Inject constructor(
                 val distance = leg.getJSONObject("distance").getInt("value")
                 val duration = leg.getJSONObject("duration").getInt("value")
                 val summary = route.getString("summary")
+                val encodedPolyline = route
+                    .optJSONObject("overview_polyline")
+                    ?.optString("points")
+                    .orEmpty()
 
-                val steps = leg.getJSONArray("steps")
-                val points = mutableListOf<Pair<Double, Double>>()
-                for (j in 0 until steps.length()) {
-                    val loc = steps.getJSONObject(j).getJSONObject("start_location")
-                    points.add(loc.getDouble("lat") to loc.getDouble("lng"))
+                val latLngPoints = decodePolyline(encodedPolyline).ifEmpty {
+                    extractStepPoints(leg)
                 }
-
-                val score = routeScorer.score(points, distance, ncrbDataSource)
-                val latLngPoints = points.map { LatLng(it.first, it.second) }
+                val scoringPoints = latLngPoints.map { it.latitude to it.longitude }
+                val score = routeScorer.score(scoringPoints, distance, ncrbDataSource)
                 scoredRoutes.add(
                     ScoredRoute(
                         name = summary.ifBlank { "Route ${i + 1}" },
@@ -141,4 +141,57 @@ class RouteRepository @Inject constructor(
             "&destination=${dest.latitude},${dest.longitude}" +
             "&alternatives=true" +
             "&key=$apiKey"
+
+    private fun extractStepPoints(leg: JSONObject): List<LatLng> {
+        val points = mutableListOf<LatLng>()
+        val steps = leg.optJSONArray("steps") ?: return emptyList()
+        for (j in 0 until steps.length()) {
+            val step = steps.optJSONObject(j) ?: continue
+            step.optJSONObject("start_location")?.let { loc ->
+                points += LatLng(loc.optDouble("lat"), loc.optDouble("lng"))
+            }
+            if (j == steps.length() - 1) {
+                step.optJSONObject("end_location")?.let { loc ->
+                    points += LatLng(loc.optDouble("lat"), loc.optDouble("lng"))
+                }
+            }
+        }
+        return points
+    }
+
+    private fun decodePolyline(encoded: String): List<LatLng> {
+        if (encoded.isBlank()) return emptyList()
+
+        val polyline = mutableListOf<LatLng>()
+        var index = 0
+        var lat = 0
+        var lng = 0
+
+        while (index < encoded.length) {
+            var result = 0
+            var shift = 0
+            var b: Int
+            do {
+                b = encoded[index++].code - 63
+                result = result or ((b and 0x1f) shl shift)
+                shift += 5
+            } while (b >= 0x20 && index < encoded.length)
+            val deltaLat = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lat += deltaLat
+
+            result = 0
+            shift = 0
+            do {
+                b = encoded[index++].code - 63
+                result = result or ((b and 0x1f) shl shift)
+                shift += 5
+            } while (b >= 0x20 && index < encoded.length)
+            val deltaLng = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lng += deltaLng
+
+            polyline += LatLng(lat / 1E5, lng / 1E5)
+        }
+
+        return polyline
+    }
 }

@@ -19,9 +19,16 @@ import com.raksha.app.repository.UserRepository
 import com.raksha.app.utils.LocationUtils
 import com.raksha.app.utils.SmsUtils
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.*
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class ShieldForegroundService : Service() {
@@ -65,20 +72,24 @@ class ShieldForegroundService : Service() {
         }
 
         startForeground(NOTIFICATION_ID, buildNotification())
-        isRunning = true
 
         val modelLoaded = audioThreatDetector.loadModel()
-        if (modelLoaded) {
-            audioThreatDetector.setThreatCallback { result ->
-                if (activeSosEventId == null) {
-                    triggerSos(result)
-                }
-            }
-            audioThreatDetector.startDetection(serviceScope)
-            Log.d(TAG, "Shield active — audio monitoring started")
-        } else {
-            Log.w(TAG, "TFLite model not loaded — audio monitoring unavailable")
+        if (!modelLoaded) {
+            isRunning = false
+            Log.w(TAG, "TFLite model not loaded - audio monitoring unavailable")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
         }
+
+        isRunning = true
+        audioThreatDetector.setThreatCallback { result ->
+            if (activeSosEventId == null) {
+                triggerSos(result)
+            }
+        }
+        audioThreatDetector.startDetection(serviceScope)
+        Log.d(TAG, "Shield active - audio monitoring started")
 
         return START_STICKY
     }
@@ -86,8 +97,7 @@ class ShieldForegroundService : Service() {
     private fun triggerSos(result: ThreatDetectionResult) {
         serviceScope.launch {
             try {
-                val location = locationUtils.getCurrentLocation()
-                    ?: locationUtils.getLastKnownLocation()
+                val location = locationUtils.getCurrentLocation() ?: locationUtils.getLastKnownLocation()
 
                 val lat = location?.latitude ?: 0.0
                 val lng = location?.longitude ?: 0.0
@@ -114,7 +124,6 @@ class ShieldForegroundService : Service() {
                     confidenceScore = result.confidence
                 )
 
-                // Auto-dial emergency number
                 val callIntent = Intent(Intent.ACTION_CALL).apply {
                     data = android.net.Uri.parse("tel:112")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -123,11 +132,9 @@ class ShieldForegroundService : Service() {
 
                 startLocationUpdateLoop(eventId.toInt(), phoneNumbers, user?.name ?: "User")
 
-                // Navigate to Active SOS screen via broadcast
                 sendBroadcast(Intent("com.raksha.app.SOS_TRIGGERED").apply {
                     putExtra("sos_event_id", eventId.toInt())
                 })
-
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to trigger SOS", e)
             }
@@ -138,19 +145,19 @@ class ShieldForegroundService : Service() {
         locationUpdateJob = serviceScope.launch {
             var smsSentAt = 0L
             while (isActive && activeSosEventId != null) {
-                delay(30_000L) // every 30 seconds
+                delay(30_000L)
 
-                val location = locationUtils.getCurrentLocation()
-                    ?: locationUtils.getLastKnownLocation()
-
+                val location = locationUtils.getCurrentLocation() ?: locationUtils.getLastKnownLocation()
                 location?.let {
                     sosRepository.logLocationUpdate(sosEventId, it.latitude, it.longitude)
 
-                    // Send updated SMS to contacts every 2 minutes
                     val now = System.currentTimeMillis()
                     if (now - smsSentAt >= 120_000L) {
                         smsUtils.sendLocationUpdate(
-                            phoneNumbers, userName, it.latitude, it.longitude,
+                            phoneNumbers,
+                            userName,
+                            it.latitude,
+                            it.longitude,
                             Instant.now().toString()
                         )
                         smsSentAt = now
@@ -202,12 +209,14 @@ class ShieldForegroundService : Service() {
 
     private fun buildNotification(): Notification {
         val openIntent = PendingIntent.getActivity(
-            this, 0,
+            this,
+            0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
         )
         val stopIntent = PendingIntent.getService(
-            this, 1,
+            this,
+            1,
             stopIntent(this),
             PendingIntent.FLAG_IMMUTABLE
         )
