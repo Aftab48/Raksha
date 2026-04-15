@@ -6,34 +6,48 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.raksha.app.BuildConfig
 import com.raksha.app.repository.DirectionsApiException
-import com.raksha.app.repository.RouteRepository
 import com.raksha.app.repository.ScoredRoute
-import com.raksha.app.utils.DestinationSuggestion
+import com.raksha.app.route.DeviceLocationProvider
+import com.raksha.app.route.RoutePlanner
 import com.raksha.app.utils.DestinationResolutionResult
 import com.raksha.app.utils.DestinationResolver
-import com.raksha.app.utils.LocationUtils
+import com.raksha.app.utils.DestinationSuggestion
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 sealed class RouteUiState {
-    object Idle : RouteUiState()
-    object Loading : RouteUiState()
-    data class Success(val routes: List<ScoredRoute>) : RouteUiState()
+    data object Idle : RouteUiState()
+    data object Loading : RouteUiState()
+    data class Success(
+        val routes: List<ScoredRoute>,
+        val selectedRouteIndex: Int? = null
+    ) : RouteUiState()
+
     data class Error(
         val message: String,
         val debugDetails: String? = null
     ) : RouteUiState()
 }
 
+sealed interface RouteUiEvent {
+    data class LaunchExternalNavigation(
+        val destination: LatLng,
+        val destinationLabel: String
+    ) : RouteUiEvent
+}
+
 @HiltViewModel
 class RouteViewModel @Inject constructor(
-    private val routeRepository: RouteRepository,
-    private val locationUtils: LocationUtils,
+    private val routePlanner: RoutePlanner,
+    private val locationProvider: DeviceLocationProvider,
     private val destinationResolver: DestinationResolver
 ) : ViewModel() {
 
@@ -55,6 +69,9 @@ class RouteViewModel @Inject constructor(
     private val _currentLocation = MutableStateFlow<LatLng?>(null)
     val currentLocation: StateFlow<LatLng?> = _currentLocation
 
+    private val _events = MutableSharedFlow<RouteUiEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<RouteUiEvent> = _events.asSharedFlow()
+
     private var suggestionsJob: Job? = null
 
     init {
@@ -63,21 +80,18 @@ class RouteViewModel @Inject constructor(
 
     fun fetchLocation() {
         viewModelScope.launch {
-            val loc = try {
-                locationUtils.getCurrentLocation() ?: locationUtils.getLastKnownLocation()
-            } catch (e: Exception) {
-                null
-            }
-            loc?.let { _currentLocation.value = LatLng(it.latitude, it.longitude) }
+            val location = locationProvider.getCurrentOrLastLocation()
+            location?.let { _currentLocation.value = it }
         }
     }
 
     fun updateDestinationQuery(query: String) {
         _destinationQuery.value = query
         _selectedDestination.value = null
-        if (_searchError.value != null) {
-            _searchError.value = null
+        if (_uiState.value !is RouteUiState.Loading) {
+            _uiState.value = RouteUiState.Idle
         }
+        clearSearchError()
         updateSuggestions(query)
     }
 
@@ -85,11 +99,39 @@ class RouteViewModel @Inject constructor(
         _destinationQuery.value = suggestion.label
         _selectedDestination.value = suggestion.latLng
         _destinationSuggestions.value = emptyList()
-        _searchError.value = null
+        clearSearchError()
     }
 
     fun dismissSuggestions() {
         _destinationSuggestions.value = emptyList()
+    }
+
+    fun selectRoute(index: Int) {
+        val success = _uiState.value as? RouteUiState.Success ?: return
+        if (index !in success.routes.indices) return
+        _uiState.value = success.copy(selectedRouteIndex = index)
+        clearSearchError()
+    }
+
+    fun startNavigation() {
+        val success = _uiState.value as? RouteUiState.Success
+        if (success == null || success.selectedRouteIndex == null) {
+            _searchError.value = "Select a route before starting navigation."
+            return
+        }
+
+        val destination = _selectedDestination.value
+        if (destination == null) {
+            _searchError.value = "Destination is unavailable. Search again and retry."
+            return
+        }
+
+        val label = _destinationQuery.value.trim().ifBlank { "Destination" }
+        _events.tryEmit(RouteUiEvent.LaunchExternalNavigation(destination, label))
+    }
+
+    fun reportNavigationLaunchFailure() {
+        _searchError.value = "Could not open Google Maps. Please check if a maps app is installed."
     }
 
     fun searchRoutes() {
@@ -97,18 +139,18 @@ class RouteViewModel @Inject constructor(
 
         val query = _destinationQuery.value.trim()
         if (query.isBlank()) {
-            onSearchValidationError("Enter a destination to search.")
+            _searchError.value = "Enter a destination to search."
             return
         }
 
         val origin = _currentLocation.value
         if (origin == null) {
             fetchLocation()
-            onSearchValidationError("Current location unavailable. Enable location and try again.")
+            _searchError.value = "Current location unavailable. Enable location and try again."
             return
         }
 
-        _searchError.value = null
+        clearSearchError()
         _destinationSuggestions.value = emptyList()
         _uiState.value = RouteUiState.Loading
 
@@ -125,19 +167,23 @@ class RouteViewModel @Inject constructor(
                 is DestinationResolutionResult.Resolved -> {
                     searchRoutesForDestination(origin, destinationResult.latLng, query)
                 }
+
                 DestinationResolutionResult.NoMatch -> {
-                    onSearchValidationError("Destination not found. Try a more specific place name.")
+                    _uiState.value = RouteUiState.Idle
+                    _searchError.value = "Destination not found. Try a more specific place name."
                 }
+
                 DestinationResolutionResult.Unavailable -> {
-                    onSearchValidationError("Address lookup is unavailable on this device right now.")
+                    _uiState.value = RouteUiState.Idle
+                    _searchError.value = "Address lookup is unavailable on this device right now."
                 }
+
                 is DestinationResolutionResult.Failure -> {
                     val detail = destinationResult.reason?.takeIf { it.isNotBlank() }
-                    Log.e(TAG, "Destination lookup failed: ${detail ?: "unknown"}")
-                    onSearchValidationError(
-                        detail?.let { "Could not search destination ($it)." }
-                            ?: "Could not search destination. Please try again."
-                    )
+                    runCatching { Log.e(TAG, "Destination lookup failed: ${detail ?: "unknown"}") }
+                    _uiState.value = RouteUiState.Idle
+                    _searchError.value = detail?.let { "Could not search destination ($it)." }
+                        ?: "Could not search destination. Please try again."
                 }
             }
         }
@@ -148,7 +194,7 @@ class RouteViewModel @Inject constructor(
         _destinationQuery.value = ""
         _destinationSuggestions.value = emptyList()
         _selectedDestination.value = null
-        _searchError.value = null
+        clearSearchError()
     }
 
     private fun updateSuggestions(query: String) {
@@ -167,7 +213,7 @@ class RouteViewModel @Inject constructor(
     }
 
     private suspend fun searchRoutesForDestination(origin: LatLng, destination: LatLng, query: String) {
-        val result = routeRepository.getScoredRoutes(
+        val result = routePlanner.getScoredRoutes(
             origin = origin,
             destination = destination,
             apiKey = BuildConfig.MAPS_API_KEY
@@ -180,9 +226,9 @@ class RouteViewModel @Inject constructor(
                     _searchError.value = message
                     RouteUiState.Error(message = message)
                 } else {
-                    _searchError.value = null
+                    clearSearchError()
                     _selectedDestination.value = destination
-                    RouteUiState.Success(routes)
+                    RouteUiState.Success(routes = routes, selectedRouteIndex = null)
                 }
             },
             onFailure = { throwable ->
@@ -190,22 +236,21 @@ class RouteViewModel @Inject constructor(
                 val userMessage = directionsError?.userMessage
                     ?: throwable.message
                     ?: "Could not fetch routes right now."
-                val debugDetails = directionsError?.debugDetails
-                    ?: throwable.message
+                val debugDetails = directionsError?.debugDetails ?: throwable.message
 
-                Log.e(TAG, "Route search failed. ${debugDetails ?: "No details"}", throwable)
+                runCatching {
+                    Log.e(TAG, "Route search failed. ${debugDetails ?: "No details"}", throwable)
+                }
                 _searchError.value = userMessage
-                RouteUiState.Error(
-                    message = userMessage,
-                    debugDetails = debugDetails
-                )
+                RouteUiState.Error(message = userMessage, debugDetails = debugDetails)
             }
         )
     }
 
-    private fun onSearchValidationError(message: String) {
-        _uiState.value = RouteUiState.Idle
-        _searchError.value = message
+    private fun clearSearchError() {
+        if (_searchError.value != null) {
+            _searchError.value = null
+        }
     }
 
     private companion object {

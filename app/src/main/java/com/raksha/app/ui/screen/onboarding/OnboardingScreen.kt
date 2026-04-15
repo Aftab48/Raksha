@@ -39,6 +39,27 @@ fun OnboardingScreen(
             .fillMaxSize()
             .background(ColorBackground)
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Step ${state.currentStep + 1} of 5",
+                style = RakshaTypography.labelMedium
+            )
+            LinearProgressIndicator(
+                progress = { (state.currentStep + 1) / 5f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = ColorPrimary,
+                trackColor = ColorSurface
+            )
+        }
+
         AnimatedContent(
             targetState = state.currentStep,
             transitionSpec = {

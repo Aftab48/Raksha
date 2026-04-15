@@ -1,24 +1,51 @@
 package com.raksha.app.ui.screen.sos
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.raksha.app.ui.theme.*
+import com.raksha.app.ui.theme.ColorBackground
+import com.raksha.app.ui.theme.ColorDanger
+import com.raksha.app.ui.theme.ColorDangerSubtle
+import com.raksha.app.ui.theme.ColorSurface
+import com.raksha.app.ui.theme.ColorTextSecondary
+import com.raksha.app.ui.theme.RadiusFull
+import com.raksha.app.ui.theme.RakshaShapes
+import com.raksha.app.ui.theme.RakshaTextStyle
+import com.raksha.app.ui.theme.RakshaTypography
 import com.raksha.app.viewmodel.SosViewModel
 
 @Composable
@@ -37,10 +64,10 @@ fun ActiveSosScreen(
         if (state.isCancelled) onAlertCancelled()
     }
 
-    // Pulsing border animation
     val infiniteTransition = rememberInfiniteTransition(label = "sos_border")
     val borderAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f, targetValue = 1f,
+        initialValue = 0.3f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
@@ -51,9 +78,8 @@ fun ActiveSosScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E14))
+            .background(ColorBackground)
             .drawBehind {
-                // Red pulsing overlay tint on edges
                 drawRect(ColorDanger.copy(alpha = 0.08f))
             }
             .border(
@@ -71,21 +97,18 @@ fun ActiveSosScreen(
         ) {
             Spacer(Modifier.height(48.dp))
 
-            // ALERT ACTIVE headline
             Text(
                 text = "ALERT ACTIVE",
                 style = RakshaTypography.displayLarge.copy(color = ColorDanger),
                 textAlign = TextAlign.Center
             )
 
-            // Timer
             Text(
                 text = formatElapsed(state.elapsedSeconds),
                 style = RakshaTextStyle.mono.copy(color = ColorTextSecondary),
                 textAlign = TextAlign.Center
             )
 
-            // Status cards
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -101,16 +124,15 @@ fun ActiveSosScreen(
                     label = "Live Location",
                     value = state.currentLocation?.let {
                         "${"%.4f".format(it.latitude)}, ${"%.4f".format(it.longitude)}"
-                    } ?: "Acquiring…",
+                    } ?: "Acquiring...",
                     modifier = Modifier.weight(1f),
                     monospace = true
                 )
             }
 
-            // Trigger info
             state.event?.let { event ->
                 val triggerText = if (event.triggerType == "auto") {
-                    "Auto-detected · ${(event.confidenceScore * 100).toInt()}% confidence"
+                    "Auto-detected � ${(event.confidenceScore * 100).toInt()}% confidence"
                 } else {
                     "Manually triggered"
                 }
@@ -129,18 +151,17 @@ fun ActiveSosScreen(
                 textAlign = TextAlign.Center
             )
 
-            // Cancel button
             Button(
                 onClick = viewModel::cancelAlert,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RakshaShapes.extraLarge,
-                colors = ButtonDefaults.buttonColors(containerColor = ColorSurfaceElevated)
+                colors = ButtonDefaults.buttonColors(containerColor = ColorDangerSubtle)
             ) {
                 Text(
                     "Cancel Alert",
-                    color = ColorTextPrimary,
+                    color = ColorDanger,
                     style = RakshaTypography.bodyLarge
                 )
             }
@@ -164,7 +185,7 @@ private fun StatusCard(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = ColorDanger, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = label, tint = ColorDanger, modifier = Modifier.size(20.dp))
         Text(label, style = RakshaTypography.labelMedium)
         Text(
             value,
@@ -174,7 +195,7 @@ private fun StatusCard(
 }
 
 private fun formatElapsed(seconds: Int): String {
-    val m = seconds / 60
-    val s = seconds % 60
-    return "%02d:%02d".format(m, s)
+    val minutes = seconds / 60
+    val remainingSeconds = seconds % 60
+    return "%02d:%02d".format(minutes, remainingSeconds)
 }

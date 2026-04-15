@@ -2,23 +2,23 @@ package com.raksha.app.feature_login_register.presentation.auth.verifyotp
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.raksha.app.feature_login_register.presentation.auth.common.AuthFooterText
 import com.raksha.app.feature_login_register.presentation.auth.common.AuthPrimaryButton
 import com.raksha.app.feature_login_register.presentation.auth.common.AuthScreenContainer
+import com.raksha.app.feature_login_register.presentation.auth.common.AuthStatusBanner
 import com.raksha.app.feature_login_register.presentation.auth.common.AuthTextField
 import com.raksha.app.feature_login_register.presentation.auth.signup.SignUpUiState
 import com.raksha.app.feature_login_register.presentation.auth.signup.SignUpViewModel
-import com.raksha.app.ui.theme.ColorDanger
-import com.raksha.app.ui.theme.ColorSafe
 
 @Composable
 fun VerifyOtpRoute(
@@ -53,6 +53,7 @@ private fun VerifyOtpScreen(
     onBack: () -> Unit
 ) {
     val pendingRegistration = uiState.pendingRegistration
+    val focusManager = LocalFocusManager.current
 
     AuthScreenContainer(
         title = "Verify OTP",
@@ -67,7 +68,8 @@ private fun VerifyOtpScreen(
             onValueChange = onEmailOtpChanged,
             label = "Email OTP",
             keyboardType = KeyboardType.Number,
-            enabled = pendingRegistration != null
+            enabled = pendingRegistration != null,
+            imeAction = ImeAction.Next
         )
         Spacer(modifier = Modifier.height(10.dp))
         AuthTextField(
@@ -75,19 +77,29 @@ private fun VerifyOtpScreen(
             onValueChange = onMobileOtpChanged,
             label = "Mobile OTP",
             keyboardType = KeyboardType.Number,
-            enabled = pendingRegistration != null
+            enabled = pendingRegistration != null,
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    onVerifyClick()
+                }
+            )
         )
         uiState.errorMessage?.let {
-            Text(text = it, color = ColorDanger, style = MaterialTheme.typography.bodyLarge)
+            AuthStatusBanner(text = it, isError = true)
         }
         uiState.infoMessage?.let {
-            Text(text = it, color = ColorSafe, style = MaterialTheme.typography.bodyLarge)
+            AuthStatusBanner(text = it, isError = false)
         }
         Spacer(modifier = Modifier.height(8.dp))
         AuthPrimaryButton(
             text = "Verify OTP",
             isLoading = uiState.isVerifyingOtp,
-            onClick = onVerifyClick
+            onClick = {
+                focusManager.clearFocus()
+                onVerifyClick()
+            }
         )
         AuthFooterText(
             prompt = "Need to edit your details?",

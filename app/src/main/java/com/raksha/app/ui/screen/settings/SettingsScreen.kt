@@ -47,7 +47,9 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                        .background(ColorSurface.copy(alpha = 0.92f), RakshaShapes.large)
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -294,7 +296,7 @@ private fun SosEventItem(
 private fun SectionHeader(title: String) {
     Text(
         text = title,
-        style = RakshaTypography.labelMedium,
+        style = RakshaTypography.labelLarge.copy(color = ColorTextSecondary),
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
     )
 }
@@ -303,7 +305,7 @@ private fun SectionHeader(title: String) {
 private fun SectionHeaderInline(title: String) {
     Text(
         text = title,
-        style = RakshaTypography.labelMedium,
+        style = RakshaTypography.labelLarge.copy(color = ColorTextSecondary),
         modifier = Modifier.padding(vertical = 8.dp)
     )
 }
