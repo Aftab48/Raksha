@@ -18,6 +18,9 @@ interface SosEventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEvent(event: SosEventEntity): Long
 
+    @Query("UPDATE sos_events SET remoteAlertId = :remoteAlertId WHERE id = :id")
+    suspend fun setRemoteAlertId(id: Int, remoteAlertId: String?)
+
     @Query("UPDATE sos_events SET status = 'resolved' WHERE id = :id")
     suspend fun resolveEvent(id: Int)
 

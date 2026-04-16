@@ -102,17 +102,19 @@ class ShieldForegroundService : Service() {
                 val lat = location?.latitude ?: 0.0
                 val lng = location?.longitude ?: 0.0
                 val timestamp = Instant.now().toString()
+                val user = userRepository.getUserOnce()
 
                 val eventId = sosRepository.createSosEvent(
                     lat = lat,
                     lng = lng,
                     confidenceScore = result.confidence,
-                    triggerType = "auto"
+                    triggerType = "auto",
+                    userName = user?.name ?: "User",
+                    phone = user?.phone ?: ""
                 )
                 activeSosEventId = eventId.toInt()
 
                 val contacts = contactRepository.getContactsOnce()
-                val user = userRepository.getUserOnce()
                 val phoneNumbers = contacts.map { it.phone }
 
                 smsUtils.sendSos(
@@ -170,12 +172,17 @@ class ShieldForegroundService : Service() {
     fun cancelSos() {
         serviceScope.launch {
             val eventId = activeSosEventId ?: return@launch
-            sosRepository.resolveEvent(eventId)
+            val user = userRepository.getUserOnce()
+            sosRepository.resolveEvent(
+                eventId = eventId,
+                resolvedBy = user?.name ?: "Raksha User",
+                notes = "Cancelled from Raksha app",
+                falseAlert = true
+            )
             runCatching { startService(EvidenceStreamingService.stopIntent(this@ShieldForegroundService)) }
 
             val location = locationUtils.getLastKnownLocation()
             val contacts = contactRepository.getContactsOnce()
-            val user = userRepository.getUserOnce()
 
             smsUtils.sendCancellation(
                 phoneNumbers = contacts.map { it.phone },

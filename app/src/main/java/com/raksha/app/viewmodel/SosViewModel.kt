@@ -111,12 +111,17 @@ class SosViewModel @Inject constructor(
                 context.startService(EvidenceStreamingService.stopIntent(context))
             }
 
+            val user = userRepository.getUserOnce()
             if (currentSosEventId > 0) {
-                sosRepository.resolveEvent(currentSosEventId)
+                sosRepository.resolveEvent(
+                    eventId = currentSosEventId,
+                    resolvedBy = user?.name ?: "Raksha User",
+                    notes = "Cancelled from active SOS screen",
+                    falseAlert = true
+                )
             }
 
             val contacts = contactRepository.getContactsOnce()
-            val user = userRepository.getUserOnce()
             val loc = try {
                 locationUtils.getLastKnownLocation()
             } catch (e: Exception) { null }

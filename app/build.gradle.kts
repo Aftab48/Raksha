@@ -36,12 +36,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val mapsApiKey = resolveConfigValue("GOOGLE_MAPS_API_KEY", "")
-        val baseUrl = resolveConfigValue("RAKSHA_BASE_URL", "http://10.0.2.2:3000/api/v1/")
+        val baseUrl = resolveConfigValue("RAKSHA_BASE_URL", "https://raksha-backend-6a1s.onrender.com/api/v1/")
         val mockPoliceStreamUrl = resolveConfigValue("MOCK_POLICE_STREAM_URL", "")
+        val sosIngestApiKey = resolveConfigValue("SOS_INGEST_API_KEY", "")
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         buildConfigField("String", "MOCK_POLICE_STREAM_URL", "\"$mockPoliceStreamUrl\"")
+        buildConfigField("String", "SOS_INGEST_API_KEY", "\"$sosIngestApiKey\"")
     }
 
     buildTypes {
@@ -138,3 +140,4 @@ dependencies {
 
     debugImplementation(libs.androidx.ui.tooling)
 }
+

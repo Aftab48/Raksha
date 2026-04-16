@@ -12,7 +12,7 @@ import com.raksha.app.data.local.entity.*
         SosEventEntity::class,
         LocationUpdateEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

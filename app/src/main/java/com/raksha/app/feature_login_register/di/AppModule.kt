@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.raksha.app.BuildConfig
 import com.raksha.app.core.network.AuthInterceptor
+import com.raksha.app.feature_sos_sync.data.remote.api.SosDashboardApi
 import com.raksha.app.feature_trusted_contacts.data.remote.api.UserTrustedContactsAPI
 import com.raksha.app.feature_login_register.data.remote.api.AuthApiService
 import com.raksha.app.feature_login_register.data.repository.AuthRepositoryImpl
@@ -73,6 +74,12 @@ object NetworkModule {
     @Singleton
     fun provideTrustedContactsApiService(retrofit: Retrofit): UserTrustedContactsAPI {
         return retrofit.create(UserTrustedContactsAPI::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSosDashboardApi(retrofit: Retrofit): SosDashboardApi {
+        return retrofit.create(SosDashboardApi::class.java)
     }
 }
 

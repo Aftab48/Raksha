@@ -186,16 +186,18 @@ class HomeViewModel @Inject constructor(
                 val lat = location?.latitude ?: 0.0
                 val lng = location?.longitude ?: 0.0
                 val timestamp = Instant.now().toString()
+                val user = userRepository.getUserOnce()
 
                 val eventId = sosRepository.createSosEvent(
                     lat = lat,
                     lng = lng,
                     confidenceScore = 0.0,
-                    triggerType = "manual"
+                    triggerType = "manual",
+                    userName = user?.name ?: "User",
+                    phone = user?.phone ?: ""
                 )
 
                 val contacts = contactRepository.getContactsOnce()
-                val user = userRepository.getUserOnce()
                 smsUtils.sendSos(
                     phoneNumbers = contacts.map { it.phone },
                     userName = user?.name ?: "User",
