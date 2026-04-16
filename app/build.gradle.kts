@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -22,9 +23,31 @@ fun resolveConfigValue(key: String, defaultValue: String = ""): String {
         ?: defaultValue
 }
 
+val releaseStoreFilePath = resolveConfigValue("RAKSHA_RELEASE_STORE_FILE", "")
+val releaseStorePassword = resolveConfigValue("RAKSHA_RELEASE_STORE_PASSWORD", "")
+val releaseKeyAlias = resolveConfigValue("RAKSHA_RELEASE_KEY_ALIAS", "")
+val releaseKeyPassword = resolveConfigValue("RAKSHA_RELEASE_KEY_PASSWORD", "")
+val isReleaseTaskRequested = gradle.startParameter.taskNames.any { task ->
+    val normalized = task.lowercase()
+    normalized.contains("release") || normalized.contains("bundle") || normalized.contains("publish")
+}
+
 android {
     namespace = "com.raksha.app"
     compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            if (releaseStoreFilePath.isNotBlank()) {
+                storeFile = rootProject.file(releaseStoreFilePath)
+            }
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
 
     defaultConfig {
         applicationId = "com.raksha.app"
@@ -48,6 +71,30 @@ android {
 
     buildTypes {
         release {
+            if (isReleaseTaskRequested) {
+                val missingKeys = buildList {
+                    if (releaseStoreFilePath.isBlank()) add("RAKSHA_RELEASE_STORE_FILE")
+                    if (releaseStorePassword.isBlank()) add("RAKSHA_RELEASE_STORE_PASSWORD")
+                    if (releaseKeyAlias.isBlank()) add("RAKSHA_RELEASE_KEY_ALIAS")
+                    if (releaseKeyPassword.isBlank()) add("RAKSHA_RELEASE_KEY_PASSWORD")
+                }
+                if (missingKeys.isNotEmpty()) {
+                    throw GradleException(
+                        "Release signing config is incomplete. Add the following keys to local.properties: " +
+                            missingKeys.joinToString(", ")
+                    )
+                }
+
+                val keystoreFile = rootProject.file(releaseStoreFilePath)
+                if (!keystoreFile.exists()) {
+                    throw GradleException(
+                        "Release keystore file not found at '${keystoreFile.path}'. " +
+                            "Generate it first or update RAKSHA_RELEASE_STORE_FILE."
+                    )
+                }
+            }
+
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

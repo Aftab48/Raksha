@@ -41,7 +41,10 @@ import com.raksha.app.ui.theme.ColorBackground
 import com.raksha.app.ui.theme.ColorDanger
 import com.raksha.app.ui.theme.ColorDangerSubtle
 import com.raksha.app.ui.theme.ColorSurface
+import com.raksha.app.ui.theme.ColorSurfaceElevated
+import com.raksha.app.ui.theme.ColorTextPrimary
 import com.raksha.app.ui.theme.ColorTextSecondary
+import com.raksha.app.ui.theme.ColorWarning
 import com.raksha.app.ui.theme.RadiusFull
 import com.raksha.app.ui.theme.RakshaShapes
 import com.raksha.app.ui.theme.RakshaTextStyle
@@ -64,7 +67,9 @@ fun ActiveSosScreen(
         if (state.isCancelled) onAlertCancelled()
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "sos_border")
+    val accentColor = if (state.isPanic) ColorWarning else ColorDanger
+
+    val infiniteTransition = rememberInfiniteTransition(label = "alert_border")
     val borderAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 1f,
@@ -80,11 +85,11 @@ fun ActiveSosScreen(
             .fillMaxSize()
             .background(ColorBackground)
             .drawBehind {
-                drawRect(ColorDanger.copy(alpha = 0.08f))
+                drawRect(accentColor.copy(alpha = 0.08f))
             }
             .border(
                 width = 3.dp,
-                color = ColorDanger.copy(alpha = borderAlpha),
+                color = accentColor.copy(alpha = borderAlpha),
                 shape = RoundedCornerShape(0.dp)
             )
             .padding(24.dp),
@@ -98,8 +103,8 @@ fun ActiveSosScreen(
             Spacer(Modifier.height(48.dp))
 
             Text(
-                text = "ALERT ACTIVE",
-                style = RakshaTypography.displayLarge.copy(color = ColorDanger),
+                text = if (state.isPanic) "PANIC ALERT ACTIVE" else "ALERT ACTIVE",
+                style = RakshaTypography.displayLarge.copy(color = accentColor),
                 textAlign = TextAlign.Center
             )
 
@@ -113,12 +118,15 @@ fun ActiveSosScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StatusCard(
-                    icon = Icons.Filled.People,
-                    label = "Contacts Alerted",
-                    value = "${state.contactsAlerted}",
-                    modifier = Modifier.weight(1f)
-                )
+                if (!state.isPanic) {
+                    StatusCard(
+                        icon = Icons.Filled.People,
+                        label = "Contacts Alerted",
+                        value = "${state.contactsAlerted}",
+                        modifier = Modifier.weight(1f),
+                        accentColor = accentColor
+                    )
+                }
                 StatusCard(
                     icon = Icons.Filled.LocationOn,
                     label = "Live Location",
@@ -126,15 +134,16 @@ fun ActiveSosScreen(
                         "${"%.4f".format(it.latitude)}, ${"%.4f".format(it.longitude)}"
                     } ?: "Acquiring...",
                     modifier = Modifier.weight(1f),
-                    monospace = true
+                    monospace = true,
+                    accentColor = accentColor
                 )
             }
 
             state.event?.let { event ->
-                val triggerText = if (event.triggerType == "auto") {
-                    "Auto-detected · ${(event.confidenceScore * 100).toInt()}% confidence"
-                } else {
-                    "Manually triggered"
+                val triggerText = when {
+                    state.isPanic -> "Panic alert â€” police notified, call requested"
+                    event.triggerType == "auto" -> "Auto-detected: ${(event.confidenceScore * 100).toInt()}% confidence"
+                    else -> "Manually triggered"
                 }
                 Text(
                     text = triggerText,
@@ -143,10 +152,33 @@ fun ActiveSosScreen(
                 )
             }
 
+            state.latestPoliceNote?.let { note ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(ColorSurfaceElevated, RakshaShapes.medium)
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Message from police",
+                        style = RakshaTypography.labelMedium.copy(color = ColorWarning)
+                    )
+                    Text(
+                        note,
+                        style = RakshaTypography.bodyMedium.copy(color = ColorTextPrimary)
+                    )
+                }
+            }
+
             Spacer(Modifier.weight(1f))
 
             Text(
-                text = "Emergency services and your contacts have been notified.\nYour location is being shared every 30 seconds.",
+                text = if (state.isPanic) {
+                    "Police have been notified silently.\nYour location is being shared every 30 seconds."
+                } else {
+                    "Emergency services and your contacts have been notified.\nYour location is being shared every 30 seconds."
+                },
                 style = RakshaTypography.bodyMedium,
                 textAlign = TextAlign.Center
             )
@@ -177,7 +209,8 @@ private fun StatusCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    monospace: Boolean = false
+    monospace: Boolean = false,
+    accentColor: androidx.compose.ui.graphics.Color = ColorDanger
 ) {
     Column(
         modifier = modifier
@@ -185,7 +218,7 @@ private fun StatusCard(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(icon, contentDescription = label, tint = ColorDanger, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = label, tint = accentColor, modifier = Modifier.size(20.dp))
         Text(label, style = RakshaTypography.labelMedium)
         Text(
             value,

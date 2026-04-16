@@ -10,6 +10,7 @@ import com.raksha.app.feature_sos_sync.data.remote.api.SosDashboardApi
 import com.raksha.app.feature_sos_sync.data.remote.dto.CreateDashboardSosRequest
 import com.raksha.app.feature_sos_sync.data.remote.dto.DashboardLocationUpdateRequest
 import com.raksha.app.feature_sos_sync.data.remote.dto.DashboardResolveRequest
+import com.raksha.app.feature_sos_sync.data.remote.dto.UserNote
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -35,7 +36,9 @@ class SosRepository @Inject constructor(
         confidenceScore: Double,
         triggerType: String,
         userName: String = "User",
-        phone: String = ""
+        phone: String = "",
+        incidentType: String = "sos",
+        callRequested: Boolean = false
     ): Long {
         val now = Instant.now().toString()
         val event = SosEventEntity(
@@ -44,7 +47,8 @@ class SosRepository @Inject constructor(
             lng = lng,
             confidenceScore = confidenceScore,
             triggerType = triggerType,
-            status = "active"
+            status = "active",
+            incidentType = incidentType
         )
 
         val localEventId = sosEventDao.insertEvent(event)
@@ -60,7 +64,9 @@ class SosRepository @Inject constructor(
                     timestamp = now,
                     confidence_score = if (triggerType == "auto") confidenceScore else null,
                     trigger_type = triggerType,
-                    device_id = "raksha-android"
+                    device_id = "raksha-android",
+                    incident_type = incidentType,
+                    call_requested = callRequested
                 ),
                 apiKey = BuildConfig.SOS_INGEST_API_KEY.takeIf { it.isNotBlank() }
             )
@@ -70,6 +76,15 @@ class SosRepository @Inject constructor(
         }
 
         return localEventId
+    }
+
+    suspend fun getUserNotes(remoteAlertId: String, since: String? = null): List<UserNote> {
+        return runCatching {
+            sosDashboardApi.getUserNotes(alertId = remoteAlertId, since = since).notes
+        }.getOrElse {
+            Log.w(TAG, "Failed to fetch user notes for alert $remoteAlertId", it)
+            emptyList()
+        }
     }
 
     suspend fun logLocationUpdate(sosEventId: Int, lat: Double, lng: Double) {

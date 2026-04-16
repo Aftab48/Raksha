@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.raksha.app.data.local.entity.SosEventEntity
 import com.raksha.app.data.local.entity.TrustedContactEntity
 import com.raksha.app.data.local.entity.UserEntity
+import com.raksha.app.repository.HelpKeywordRepository
 import com.raksha.app.repository.SosRepository
 import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -23,14 +25,18 @@ data class SettingsUiState(
     val canAddMoreContacts: Boolean = true,
     val contactSyncMessage: String? = null,
     val contactSyncError: String? = null,
-    val deletingContactId: Int? = null
+    val deletingContactId: Int? = null,
+    val helpKeywords: List<String> = emptyList(),
+    val helpKeywordMessage: String? = null,
+    val helpKeywordError: String? = null
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val contactRepository: TrustedContactRepository,
-    private val sosRepository: SosRepository
+    private val sosRepository: SosRepository,
+    private val helpKeywordRepository: HelpKeywordRepository
 ) : ViewModel() {
 
     val contacts: StateFlow<List<TrustedContactEntity>> = contactRepository.contacts
@@ -45,6 +51,7 @@ class SettingsViewModel @Inject constructor(
     init {
         loadUser()
         observeContactCount()
+        observeHelpKeywords()
         syncContactsFromRemote()
     }
 
@@ -153,12 +160,65 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun addHelpKeyword(rawKeyword: String) {
+        viewModelScope.launch {
+            val keyword = rawKeyword.trim()
+            if (keyword.isBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    helpKeywordError = "Keyword cannot be blank",
+                    helpKeywordMessage = null
+                )
+                return@launch
+            }
+
+            helpKeywordRepository.addKeyword(keyword).fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        helpKeywordMessage = "\"${keyword.lowercase()}\" added",
+                        helpKeywordError = null
+                    )
+                },
+                onFailure = { throwable ->
+                    _uiState.value = _uiState.value.copy(
+                        helpKeywordError = throwable.message ?: "Couldn't add keyword",
+                        helpKeywordMessage = null
+                    )
+                }
+            )
+        }
+    }
+
+    fun removeHelpKeyword(keyword: String) {
+        viewModelScope.launch {
+            helpKeywordRepository.removeKeyword(keyword)
+            _uiState.value = _uiState.value.copy(
+                helpKeywordMessage = "\"${keyword.lowercase()}\" removed",
+                helpKeywordError = null
+            )
+        }
+    }
+
+    fun clearHelpKeywordMessages() {
+        _uiState.value = _uiState.value.copy(
+            helpKeywordMessage = null,
+            helpKeywordError = null
+        )
+    }
+
     private fun syncContactsFromRemote() {
         viewModelScope.launch {
             contactRepository.refreshContactsFromRemote().onFailure { throwable ->
                 _uiState.value = _uiState.value.copy(
                     contactSyncError = throwable.message ?: "Couldn't sync trusted contacts"
                 )
+            }
+        }
+    }
+
+    private fun observeHelpKeywords() {
+        viewModelScope.launch {
+            helpKeywordRepository.keywords.collect { keywords ->
+                _uiState.value = _uiState.value.copy(helpKeywords = keywords)
             }
         }
     }

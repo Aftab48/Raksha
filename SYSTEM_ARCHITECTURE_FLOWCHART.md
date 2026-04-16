@@ -22,7 +22,8 @@ flowchart LR
 
     APP -->|Auth and profile sync| CORE
     CORE -->|Email and SMS verification| OTP
-    CORE <-->|Core app and incident data| DB
+    CORE -->|Write and update records| DB
+    DB -->|Read records and history| CORE
 
     APP -->|SOS alerts and live location| CORE
     CORE -->|Realtime incident feed| DASH

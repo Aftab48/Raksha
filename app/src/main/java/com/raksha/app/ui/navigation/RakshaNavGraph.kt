@@ -51,6 +51,9 @@ fun RakshaNavGraph(
                 onSettings = { navController.navigate(Screen.Settings.route) },
                 onSosTriggered = { eventId ->
                     navController.navigate(Screen.ActiveSos.createRoute(eventId))
+                },
+                onPanicTriggered = { eventId ->
+                    navController.navigate(Screen.ActiveSos.createRoute(eventId))
                 }
             )
         }

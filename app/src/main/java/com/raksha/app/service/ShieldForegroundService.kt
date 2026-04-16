@@ -7,16 +7,19 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.IBinder
 import android.util.Log
 import com.raksha.app.MainActivity
 import com.raksha.app.R
 import com.raksha.app.ml.AudioThreatDetector
 import com.raksha.app.ml.ThreatDetectionResult
+import com.raksha.app.repository.HelpKeywordRepository
 import com.raksha.app.repository.SosRepository
 import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
 import com.raksha.app.utils.LocationUtils
+import com.raksha.app.utils.PermissionUtils
 import com.raksha.app.utils.SmsUtils
 import dagger.hilt.android.AndroidEntryPoint
 import java.time.Instant
@@ -27,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -49,6 +53,7 @@ class ShieldForegroundService : Service() {
     }
 
     @Inject lateinit var audioThreatDetector: AudioThreatDetector
+    @Inject lateinit var helpKeywordRepository: HelpKeywordRepository
     @Inject lateinit var sosRepository: SosRepository
     @Inject lateinit var contactRepository: TrustedContactRepository
     @Inject lateinit var userRepository: UserRepository
@@ -59,6 +64,7 @@ class ShieldForegroundService : Service() {
     private var activeSosEventId: Int? = null
     private var locationUpdateJob: Job? = null
     private var smsUpdateJob: Job? = null
+    private var keywordObserverJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -83,6 +89,13 @@ class ShieldForegroundService : Service() {
         }
 
         isRunning = true
+        keywordObserverJob?.cancel()
+        keywordObserverJob = serviceScope.launch {
+            helpKeywordRepository.keywords.collect { keywords ->
+                audioThreatDetector.updateHelpKeywords(keywords)
+                Log.d(TAG, "Updated help keywords count=${keywords.size}")
+            }
+        }
         audioThreatDetector.setThreatCallback { result ->
             if (activeSosEventId == null) {
                 triggerSos(result)
@@ -116,27 +129,49 @@ class ShieldForegroundService : Service() {
 
                 val contacts = contactRepository.getContactsOnce()
                 val phoneNumbers = contacts.map { it.phone }
+                val hasSmsPermission = PermissionUtils.hasSmsPermission(this@ShieldForegroundService)
+                val hasCallPermission = PermissionUtils.hasCallPermission(this@ShieldForegroundService)
 
-                smsUtils.sendSos(
-                    phoneNumbers = phoneNumbers,
-                    userName = user?.name ?: "User",
-                    lat = lat,
-                    lng = lng,
-                    timestamp = timestamp,
-                    confidenceScore = result.confidence
-                )
-
-                val callIntent = Intent(Intent.ACTION_CALL).apply {
-                    data = android.net.Uri.parse("tel:112")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (hasSmsPermission) {
+                    smsUtils.sendSos(
+                        phoneNumbers = phoneNumbers,
+                        userName = user?.name ?: "User",
+                        lat = lat,
+                        lng = lng,
+                        timestamp = timestamp,
+                        confidenceScore = result.confidence
+                    )
+                } else {
+                    Log.w(TAG, "SEND_SMS permission missing. Auto SOS skipped SMS notifications.")
                 }
-                startActivity(callIntent)
+
+                if (hasCallPermission) {
+                    val callIntent = Intent(Intent.ACTION_CALL).apply {
+                        data = Uri.parse("tel:112")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(callIntent)
+                } else {
+                    Log.w(TAG, "CALL_PHONE permission missing. Opening dialer instead.")
+                    val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                        data = Uri.parse("tel:112")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(dialIntent)
+                }
 
                 startLocationUpdateLoop(eventId.toInt(), phoneNumbers, user?.name ?: "User")
 
                 sendBroadcast(Intent("com.raksha.app.SOS_TRIGGERED").apply {
                     putExtra("sos_event_id", eventId.toInt())
                 })
+
+                if (result.matchedKeyword != null) {
+                    Log.i(
+                        TAG,
+                        "SOS auto-triggered by keyword '${result.matchedKeyword}' (label='${result.topLabel}', confidence=${result.confidence})"
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to trigger SOS", e)
             }
@@ -199,6 +234,8 @@ class ShieldForegroundService : Service() {
 
     private fun stopShield() {
         audioThreatDetector.stopDetection()
+        keywordObserverJob?.cancel()
+        keywordObserverJob = null
         locationUpdateJob?.cancel()
         smsUpdateJob?.cancel()
         isRunning = false

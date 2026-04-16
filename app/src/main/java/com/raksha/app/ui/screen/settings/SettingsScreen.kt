@@ -1,6 +1,7 @@
 package com.raksha.app.ui.screen.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -32,6 +34,14 @@ fun SettingsScreen(
     val contacts by viewModel.contacts.collectAsState()
     val sosEvents by viewModel.sosEvents.collectAsState()
     var pendingDeleteContact by remember { mutableStateOf<com.raksha.app.data.local.entity.TrustedContactEntity?>(null) }
+    var keywordInput by remember { mutableStateOf("") }
+
+    LaunchedEffect(uiState.helpKeywordError, uiState.helpKeywordMessage) {
+        if (uiState.helpKeywordError != null || uiState.helpKeywordMessage != null) {
+            kotlinx.coroutines.delay(3500L)
+            viewModel.clearHelpKeywordMessages()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -155,6 +165,120 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         deleteEnabled = uiState.deletingContactId != contact.id
                     )
+                }
+            }
+
+            item { Spacer(Modifier.height(24.dp)) }
+
+            item {
+                SectionHeaderInline("Help Keywords (${uiState.helpKeywords.size}/15)")
+            }
+
+            item {
+                Text(
+                    text = "Shield matches these keywords against local audio model classes and auto-triggers SOS when matched.",
+                    style = RakshaTypography.bodySmall.copy(color = ColorTextSecondary),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = keywordInput,
+                        onValueChange = { keywordInput = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Add keyword (e.g. help, bachao)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = ColorPrimary,
+                            unfocusedBorderColor = ColorBorder,
+                            focusedTextColor = ColorTextPrimary,
+                            unfocusedTextColor = ColorTextPrimary,
+                            cursorColor = ColorPrimary
+                        ),
+                        shape = RakshaShapes.medium
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.addHelpKeyword(keywordInput)
+                            keywordInput = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ColorPrimary),
+                        enabled = keywordInput.isNotBlank()
+                    ) {
+                        Text("Add", color = ColorTextInverse)
+                    }
+                }
+            }
+
+            uiState.helpKeywordError?.let { error ->
+                item {
+                    Text(
+                        text = error,
+                        style = RakshaTypography.bodyMedium.copy(color = ColorDanger),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            uiState.helpKeywordMessage?.let { message ->
+                item {
+                    Text(
+                        text = message,
+                        style = RakshaTypography.bodyMedium.copy(color = ColorSafe),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            if (uiState.helpKeywords.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .background(ColorSurface, RakshaShapes.medium)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "No keywords added. Add words like help, bachao, save me.",
+                            style = RakshaTypography.bodyMedium.copy(color = ColorTextSecondary)
+                        )
+                    }
+                }
+            } else {
+                items(uiState.helpKeywords) { keyword ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .border(1.dp, ColorBorder, RakshaShapes.medium)
+                            .background(ColorSurface, RakshaShapes.medium)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = keyword,
+                            style = RakshaTypography.bodyMedium,
+                            color = ColorTextPrimary
+                        )
+                        IconButton(onClick = { viewModel.removeHelpKeyword(keyword) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = "Remove keyword",
+                                tint = ColorDanger
+                            )
+                        }
+                    }
                 }
             }
 

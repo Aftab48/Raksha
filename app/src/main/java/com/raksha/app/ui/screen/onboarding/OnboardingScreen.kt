@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.raksha.app.ui.component.ContactCard
 import com.raksha.app.ui.theme.*
@@ -328,6 +329,10 @@ private fun PermissionsStep(onNext: () -> Unit, onBack: () -> Unit) {
     val permissionsState = rememberMultiplePermissionsState(
         permissions = PermissionUtils.ONBOARDING_PERMISSIONS.toList()
     )
+    val requiredPermissions = remember { PermissionUtils.ONBOARDING_REQUIRED_PERMISSIONS.toSet() }
+    val hasRequiredPermissions = permissionsState.permissions
+        .filter { it.permission in requiredPermissions }
+        .all { it.status is PermissionStatus.Granted }
 
     Column(
         modifier = Modifier
@@ -345,12 +350,12 @@ private fun PermissionsStep(onNext: () -> Unit, onBack: () -> Unit) {
         PermissionRow("Microphone", "Detects distress sounds when Shield is active")
         PermissionRow("Location", "Sends your exact location during SOS alerts")
         PermissionRow("Camera", "Shares front camera feed when SOS is triple-tapped")
-        PermissionRow("SMS", "Alerts your trusted contacts with your location")
+        PermissionRow("SMS (Optional)", "Alerts your trusted contacts if Android allows SMS permission")
         PermissionRow("Phone", "Auto-dials 112 when an emergency is detected")
 
         Spacer(Modifier.weight(1f))
 
-        if (!permissionsState.allPermissionsGranted) {
+        if (!hasRequiredPermissions) {
             Button(
                 onClick = { permissionsState.launchMultiplePermissionRequest() },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -360,6 +365,10 @@ private fun PermissionsStep(onNext: () -> Unit, onBack: () -> Unit) {
                 Text("Grant Permissions", color = ColorTextInverse, style = RakshaTypography.bodyLarge)
             }
         } else {
+            Text(
+                text = "SMS permission is optional. SOS will still work without it.",
+                style = RakshaTypography.bodySmall.copy(color = ColorTextSecondary)
+            )
             Button(
                 onClick = onNext,
                 modifier = Modifier.fillMaxWidth().height(52.dp),

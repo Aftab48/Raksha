@@ -12,5 +12,6 @@ data class SosEventEntity(
     val confidenceScore: Double, // TFLite output score 0.0-1.0, 0.0 if manual
     val triggerType: String, // "auto" or "manual"
     val status: String, // "active" or "resolved"
-    val remoteAlertId: String? = null
+    val remoteAlertId: String? = null,
+    val incidentType: String = "sos" // "sos" or "panic"
 )

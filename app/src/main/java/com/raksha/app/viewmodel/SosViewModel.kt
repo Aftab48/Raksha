@@ -11,6 +11,7 @@ import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
 import com.raksha.app.service.EvidenceStreamingService
 import com.raksha.app.utils.LocationUtils
+import com.raksha.app.utils.PanicNotificationHelper
 import com.raksha.app.utils.SmsUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,7 +29,9 @@ data class SosActiveUiState(
     val locationUpdates: List<LocationUpdateEntity> = emptyList(),
     val elapsedSeconds: Int = 0,
     val isCancelled: Boolean = false,
-    val contactsAlerted: Int = 0
+    val contactsAlerted: Int = 0,
+    val isPanic: Boolean = false,
+    val latestPoliceNote: String? = null
 )
 
 @HiltViewModel
@@ -38,7 +41,8 @@ class SosViewModel @Inject constructor(
     private val contactRepository: TrustedContactRepository,
     private val userRepository: UserRepository,
     private val locationUtils: LocationUtils,
-    private val smsUtils: SmsUtils
+    private val smsUtils: SmsUtils,
+    private val panicNotificationHelper: PanicNotificationHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SosActiveUiState())
@@ -46,22 +50,30 @@ class SosViewModel @Inject constructor(
 
     private var timerJob: Job? = null
     private var locationJob: Job? = null
+    private var notePollingJob: Job? = null
     private var currentSosEventId: Int = -1
+    private var lastNoteTimestamp: String? = null
 
     fun loadEvent(sosEventId: Int) {
         currentSosEventId = sosEventId
         viewModelScope.launch {
             val event = sosRepository.getActiveEvent()
             val contacts = contactRepository.getContactsOnce()
+            val isPanic = event?.incidentType == "panic"
 
             _uiState.value = _uiState.value.copy(
                 event = event,
-                contactsAlerted = contacts.size
+                contactsAlerted = contacts.size,
+                isPanic = isPanic
             )
 
             startTimer()
             startLocationLoop(sosEventId)
             observeLocationUpdates(sosEventId)
+
+            if (isPanic) {
+                startNotePolling(event?.remoteAlertId)
+            }
         }
     }
 
@@ -103,10 +115,27 @@ class SosViewModel @Inject constructor(
         }
     }
 
+    private fun startNotePolling(remoteAlertId: String?) {
+        if (remoteAlertId == null) return
+        notePollingJob?.cancel()
+        notePollingJob = viewModelScope.launch {
+            while (true) {
+                delay(15_000L)
+                val notes = sosRepository.getUserNotes(remoteAlertId, since = lastNoteTimestamp)
+                notes.forEach { note ->
+                    lastNoteTimestamp = note.sent_at
+                    _uiState.value = _uiState.value.copy(latestPoliceNote = note.message)
+                    panicNotificationHelper.showNoteNotification(note.message)
+                }
+            }
+        }
+    }
+
     fun cancelAlert() {
         viewModelScope.launch {
             timerJob?.cancel()
             locationJob?.cancel()
+            notePollingJob?.cancel()
             runCatching {
                 context.startService(EvidenceStreamingService.stopIntent(context))
             }
@@ -141,5 +170,6 @@ class SosViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         locationJob?.cancel()
+        notePollingJob?.cancel()
     }
 }

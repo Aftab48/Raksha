@@ -52,6 +52,7 @@ import com.google.maps.android.heatmaps.HeatmapTileProvider
 import com.google.maps.android.heatmaps.WeightedLatLng
 import com.raksha.app.BuildConfig
 import com.raksha.app.data.assets.NcrbDistrict
+import com.raksha.app.ui.component.PanicButton
 import com.raksha.app.ui.component.ShieldToggle
 import com.raksha.app.ui.component.SosButton
 import com.raksha.app.ui.map.RakshaMapStyle
@@ -77,6 +78,7 @@ fun HomeScreen(
     onNavigateSafely: () -> Unit,
     onSettings: () -> Unit,
     onSosTriggered: (Int) -> Unit,
+    onPanicTriggered: (Int) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -96,6 +98,13 @@ fun HomeScreen(
         if (state.sosTriggerActive && state.activeSosEventId != null) {
             onSosTriggered(state.activeSosEventId!!)
             viewModel.onSosNavigated()
+        }
+    }
+
+    LaunchedEffect(state.panicTriggerActive, state.activePanicEventId) {
+        if (state.panicTriggerActive && state.activePanicEventId != null) {
+            onPanicTriggered(state.activePanicEventId!!)
+            viewModel.onPanicNavigated()
         }
     }
 
@@ -287,30 +296,44 @@ fun HomeScreen(
                 Text("Navigate Safely", color = ColorTextPrimary, style = RakshaTypography.bodyLarge)
             }
 
+            ShieldToggle(
+                isActive = state.shieldActive,
+                onToggle = viewModel::toggleShield,
+                enabled = state.hasMinimumContacts
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ShieldToggle(
-                    isActive = state.shieldActive,
-                    onToggle = viewModel::toggleShield,
-                    enabled = state.hasMinimumContacts
-                )
-
                 SosButton(
                     onLongHoldConfirmed = viewModel::triggerSosFromLongHold,
                     onTripleTapDetected = viewModel::triggerSosFromTripleTap,
                     isActive = state.shieldActive,
                     isBusy = state.isSosInProgress
                 )
+                PanicButton(
+                    onClick = viewModel::triggerPanicAlert,
+                    isBusy = state.isPanicInProgress
+                )
             }
 
-            Text(
-                text = "Hold SOS for 1.5s or tap 3 times quickly",
-                style = RakshaTypography.labelMedium,
-                color = ColorTextSecondary
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "SOS: hold 1.5s or triple-tap — notifies contacts + 112",
+                    style = RakshaTypography.labelMedium,
+                    color = ColorTextSecondary
+                )
+                Text(
+                    text = "Panic: single tap — silent alert to police only",
+                    style = RakshaTypography.labelMedium,
+                    color = ColorTextSecondary
+                )
+            }
 
             if (!state.hasMinimumContacts) {
                 Text(

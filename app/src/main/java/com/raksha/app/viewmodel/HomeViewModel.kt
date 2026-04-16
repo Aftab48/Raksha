@@ -3,6 +3,7 @@ package com.raksha.app.viewmodel
 import android.content.Context
 import android.content.Intent
 import android.location.Location
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
@@ -16,6 +17,7 @@ import com.raksha.app.service.EvidenceStreamingService
 import com.raksha.app.service.ShieldForegroundService
 import com.raksha.app.utils.HapticUtils
 import com.raksha.app.utils.LocationUtils
+import com.raksha.app.utils.PanicNotificationHelper
 import com.raksha.app.utils.PermissionUtils
 import com.raksha.app.utils.SmsUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,7 +40,10 @@ data class HomeUiState(
     val statusMessage: String? = null,
     val isSosInProgress: Boolean = false,
     val isEvidenceStreaming: Boolean = false,
-    val evidenceStreamStatusMessage: String? = null
+    val evidenceStreamStatusMessage: String? = null,
+    val panicTriggerActive: Boolean = false,
+    val activePanicEventId: Int? = null,
+    val isPanicInProgress: Boolean = false
 )
 
 private enum class ManualSosTrigger {
@@ -55,7 +60,8 @@ class HomeViewModel @Inject constructor(
     private val contactRepository: TrustedContactRepository,
     private val userRepository: UserRepository,
     private val smsUtils: SmsUtils,
-    private val hapticUtils: HapticUtils
+    private val hapticUtils: HapticUtils,
+    private val panicNotificationHelper: PanicNotificationHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -65,6 +71,7 @@ class HomeViewModel @Inject constructor(
         loadHeatmapData()
         loadUserInfo()
         refreshShieldState()
+        panicNotificationHelper.createChannel()
     }
 
     private fun loadHeatmapData() {
@@ -172,9 +179,9 @@ class HomeViewModel @Inject constructor(
     private fun triggerManualSos(trigger: ManualSosTrigger) {
         if (_uiState.value.isSosInProgress) return
 
-        if (!PermissionUtils.hasSosPermissions(context)) {
+        if (!PermissionUtils.hasSosRequiredPermissions(context)) {
             _uiState.value = _uiState.value.copy(
-                statusMessage = "Location, SMS, and phone call permissions are required for SOS."
+                statusMessage = "Location permission is required for SOS."
             )
             return
         }
@@ -198,20 +205,33 @@ class HomeViewModel @Inject constructor(
                 )
 
                 val contacts = contactRepository.getContactsOnce()
-                smsUtils.sendSos(
-                    phoneNumbers = contacts.map { it.phone },
-                    userName = user?.name ?: "User",
-                    lat = lat,
-                    lng = lng,
-                    timestamp = timestamp,
-                    confidenceScore = null
-                )
+                val hasSmsPermission = PermissionUtils.hasSmsPermission(context)
+                val hasCallPermission = PermissionUtils.hasCallPermission(context)
 
-                val callIntent = Intent(Intent.ACTION_CALL).apply {
-                    data = android.net.Uri.parse("tel:112")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (hasSmsPermission) {
+                    smsUtils.sendSos(
+                        phoneNumbers = contacts.map { it.phone },
+                        userName = user?.name ?: "User",
+                        lat = lat,
+                        lng = lng,
+                        timestamp = timestamp,
+                        confidenceScore = null
+                    )
                 }
-                context.startActivity(callIntent)
+
+                if (hasCallPermission) {
+                    val callIntent = Intent(Intent.ACTION_CALL).apply {
+                        data = Uri.parse("tel:112")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(callIntent)
+                } else {
+                    val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                        data = Uri.parse("tel:112")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(dialIntent)
+                }
 
                 val evidenceStatus = if (trigger == ManualSosTrigger.TRIPLE_TAP) {
                     startEvidenceStreamingIfAvailable(
@@ -228,10 +248,19 @@ class HomeViewModel @Inject constructor(
                     ManualSosTrigger.TRIPLE_TAP -> hapticUtils.vibrateEmergencyPattern()
                 }
 
+                val fallbackNotes = buildList {
+                    if (!hasSmsPermission) add("SMS permission missing: trusted contacts were not notified.")
+                    if (!hasCallPermission) add("Call permission missing: emergency dialer opened manually.")
+                }
+
                 _uiState.value = _uiState.value.copy(
                     sosTriggerActive = true,
                     activeSosEventId = eventId.toInt(),
-                    statusMessage = "SOS triggered. Contacting emergency services...",
+                    statusMessage = if (fallbackNotes.isEmpty()) {
+                        "SOS triggered. Contacting emergency services..."
+                    } else {
+                        "SOS triggered. ${fallbackNotes.joinToString(" ")}"
+                    },
                     evidenceStreamStatusMessage = evidenceStatus,
                     isSosInProgress = false
                 )
@@ -281,5 +310,55 @@ class HomeViewModel @Inject constructor(
             sosTriggerActive = false,
             isEvidenceStreaming = EvidenceStreamingService.isRunning
         )
+    }
+
+    fun triggerPanicAlert() {
+        if (_uiState.value.isPanicInProgress) return
+
+        if (!PermissionUtils.hasSosRequiredPermissions(context)) {
+            _uiState.value = _uiState.value.copy(
+                statusMessage = "Location permission is required for Panic Alert."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isPanicInProgress = true, statusMessage = "Triggering Panic Alert...")
+            try {
+                val location = locationUtils.getCurrentLocation() ?: locationUtils.getLastKnownLocation()
+                val lat = location?.latitude ?: 0.0
+                val lng = location?.longitude ?: 0.0
+                val user = userRepository.getUserOnce()
+
+                val eventId = sosRepository.createSosEvent(
+                    lat = lat,
+                    lng = lng,
+                    confidenceScore = 0.0,
+                    triggerType = "manual",
+                    userName = user?.name ?: "User",
+                    phone = user?.phone ?: "",
+                    incidentType = "panic",
+                    callRequested = true
+                )
+
+                hapticUtils.vibrateEmergencyPattern()
+
+                _uiState.value = _uiState.value.copy(
+                    panicTriggerActive = true,
+                    activePanicEventId = eventId.toInt(),
+                    statusMessage = "Panic alert sent to police. Stay calm.",
+                    isPanicInProgress = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isPanicInProgress = false,
+                    statusMessage = e.message ?: "Could not trigger Panic Alert. Please retry."
+                )
+            }
+        }
+    }
+
+    fun onPanicNavigated() {
+        _uiState.value = _uiState.value.copy(panicTriggerActive = false)
     }
 }

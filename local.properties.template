@@ -15,3 +15,9 @@ MOCK_POLICE_STREAM_URL=
 # Optional shared key for dashboard ingest endpoints
 SOS_INGEST_API_KEY=
 
+# Release signing (local only, never commit secrets)
+RAKSHA_RELEASE_STORE_FILE=keystore/raksha-release.jks
+RAKSHA_RELEASE_STORE_PASSWORD=
+RAKSHA_RELEASE_KEY_ALIAS=raksha_release
+RAKSHA_RELEASE_KEY_PASSWORD=
+
