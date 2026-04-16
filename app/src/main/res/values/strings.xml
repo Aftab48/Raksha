@@ -7,4 +7,6 @@
     <string name="shield_channel_name">Shield Protection</string>
     <string name="sos_channel_id">raksha_sos_channel</string>
     <string name="sos_channel_name">SOS Alerts</string>
+    <string name="evidence_channel_id">raksha_evidence_channel</string>
+    <string name="evidence_channel_name">Evidence Sharing</string>
 </resources>

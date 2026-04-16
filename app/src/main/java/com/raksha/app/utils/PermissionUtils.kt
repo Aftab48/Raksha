@@ -16,9 +16,15 @@ object PermissionUtils {
         Manifest.permission.CALL_PHONE
     )
 
+    val EVIDENCE_STREAM_PERMISSIONS = arrayOf(
+        Manifest.permission.CAMERA,
+        Manifest.permission.RECORD_AUDIO
+    )
+
     val ONBOARDING_PERMISSIONS = arrayOf(
         Manifest.permission.RECORD_AUDIO,
         Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.CAMERA,
         Manifest.permission.SEND_SMS,
         Manifest.permission.CALL_PHONE
     )
@@ -34,4 +40,7 @@ object PermissionUtils {
 
     fun hasSosPermissions(context: Context): Boolean =
         hasAllPermissions(context, SOS_PERMISSIONS)
+
+    fun hasEvidenceStreamingPermissions(context: Context): Boolean =
+        hasAllPermissions(context, EVIDENCE_STREAM_PERMISSIONS)
 }

@@ -8,3 +8,6 @@ GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY_HERE
 
 # Backend API URL
 RAKSHA_BASE_URL=http://localhost:3000/api/v1/
+
+# Mock police upload endpoint for triple-tap evidence stream
+MOCK_POLICE_STREAM_URL=

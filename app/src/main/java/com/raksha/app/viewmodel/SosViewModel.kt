@@ -1,5 +1,6 @@
 package com.raksha.app.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
@@ -8,9 +9,11 @@ import com.raksha.app.data.local.entity.SosEventEntity
 import com.raksha.app.repository.SosRepository
 import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
+import com.raksha.app.service.EvidenceStreamingService
 import com.raksha.app.utils.LocationUtils
 import com.raksha.app.utils.SmsUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +33,7 @@ data class SosActiveUiState(
 
 @HiltViewModel
 class SosViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val sosRepository: SosRepository,
     private val contactRepository: TrustedContactRepository,
     private val userRepository: UserRepository,
@@ -103,6 +107,9 @@ class SosViewModel @Inject constructor(
         viewModelScope.launch {
             timerJob?.cancel()
             locationJob?.cancel()
+            runCatching {
+                context.startService(EvidenceStreamingService.stopIntent(context))
+            }
 
             if (currentSosEventId > 0) {
                 sosRepository.resolveEvent(currentSosEventId)

@@ -37,9 +37,11 @@ android {
 
         val mapsApiKey = resolveConfigValue("GOOGLE_MAPS_API_KEY", "")
         val baseUrl = resolveConfigValue("RAKSHA_BASE_URL", "http://10.0.2.2:3000/api/v1/")
+        val mockPoliceStreamUrl = resolveConfigValue("MOCK_POLICE_STREAM_URL", "")
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        buildConfigField("String", "MOCK_POLICE_STREAM_URL", "\"$mockPoliceStreamUrl\"")
     }
 
     buildTypes {
@@ -107,6 +109,9 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.maps.compose)
     implementation(libs.maps.android.utils)
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
 
     // TensorFlow Lite
     implementation(libs.tflite)
@@ -129,6 +134,7 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -81,6 +81,7 @@ fun OnboardingScreen(
                 )
                 2 -> ContactsStep(
                     contacts = state.contacts,
+                    deletingContactId = state.deletingContactId,
                     syncMessage = state.contactSyncMessage,
                     syncError = state.contactSyncError,
                     onAddContact = viewModel::addContact,
@@ -199,6 +200,7 @@ private fun NamePhoneStep(
 @Composable
 private fun ContactsStep(
     contacts: List<com.raksha.app.data.local.entity.TrustedContactEntity>,
+    deletingContactId: Int?,
     syncMessage: String?,
     syncError: String?,
     onAddContact: (String, String) -> Unit,
@@ -207,6 +209,7 @@ private fun ContactsStep(
     onBack: () -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    var pendingDeleteContact by remember { mutableStateOf<com.raksha.app.data.local.entity.TrustedContactEntity?>(null) }
 
     Column(
         modifier = Modifier
@@ -234,7 +237,11 @@ private fun ContactsStep(
         }
 
         contacts.forEach { contact ->
-            ContactCard(contact = contact, onDelete = onRemoveContact)
+            ContactCard(
+                contact = contact,
+                onDeleteRequest = { pendingDeleteContact = it },
+                deleteEnabled = deletingContactId != contact.id
+            )
         }
 
         if (contacts.size < 5) {
@@ -283,6 +290,36 @@ private fun ContactsStep(
             onDismiss = { showAddDialog = false }
         )
     }
+
+    pendingDeleteContact?.let { contact ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteContact = null },
+            containerColor = ColorSurfaceElevated,
+            title = { Text("Remove Contact", style = RakshaTypography.headlineMedium) },
+            text = {
+                Text(
+                    "Delete ${contact.name} from trusted contacts?",
+                    style = RakshaTypography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRemoveContact(contact)
+                        pendingDeleteContact = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ColorDanger)
+                ) {
+                    Text("Delete", color = ColorTextPrimary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteContact = null }) {
+                    Text("Cancel", color = ColorTextSecondary)
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -307,6 +344,7 @@ private fun PermissionsStep(onNext: () -> Unit, onBack: () -> Unit) {
 
         PermissionRow("Microphone", "Detects distress sounds when Shield is active")
         PermissionRow("Location", "Sends your exact location during SOS alerts")
+        PermissionRow("Camera", "Shares front camera feed when SOS is triple-tapped")
         PermissionRow("SMS", "Alerts your trusted contacts with your location")
         PermissionRow("Phone", "Auto-dials 112 when an emergency is detected")
 

@@ -22,7 +22,8 @@ data class SettingsUiState(
     val showAddContactDialog: Boolean = false,
     val canAddMoreContacts: Boolean = true,
     val contactSyncMessage: String? = null,
-    val contactSyncError: String? = null
+    val contactSyncError: String? = null,
+    val deletingContactId: Int? = null
 )
 
 @HiltViewModel
@@ -100,11 +101,13 @@ class SettingsViewModel @Inject constructor(
 
     fun deleteContact(contact: TrustedContactEntity) {
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(deletingContactId = contact.id)
             contactRepository.deleteContact(contact).fold(
                 onSuccess = {
                     _uiState.value = _uiState.value.copy(
                         contactSyncMessage = "Trusted contact removed",
-                        contactSyncError = null
+                        contactSyncError = null,
+                        deletingContactId = null
                     )
                 },
                 onFailure = { throwable ->
@@ -112,12 +115,14 @@ class SettingsViewModel @Inject constructor(
                     _uiState.value = if (message.startsWith("Removed locally")) {
                         _uiState.value.copy(
                             contactSyncMessage = message,
-                            contactSyncError = null
+                            contactSyncError = null,
+                            deletingContactId = null
                         )
                     } else {
                         _uiState.value.copy(
                             contactSyncError = message,
-                            contactSyncMessage = null
+                            contactSyncMessage = null,
+                            deletingContactId = null
                         )
                     }
                 }

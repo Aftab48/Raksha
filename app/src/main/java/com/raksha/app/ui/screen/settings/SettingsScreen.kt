@@ -31,6 +31,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val contacts by viewModel.contacts.collectAsState()
     val sosEvents by viewModel.sosEvents.collectAsState()
+    var pendingDeleteContact by remember { mutableStateOf<com.raksha.app.data.local.entity.TrustedContactEntity?>(null) }
 
     Box(
         modifier = Modifier
@@ -150,8 +151,9 @@ fun SettingsScreen(
                 items(contacts) { contact ->
                     ContactCard(
                         contact = contact,
-                        onDelete = viewModel::deleteContact,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        onDeleteRequest = { pendingDeleteContact = it },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        deleteEnabled = uiState.deletingContactId != contact.id
                     )
                 }
             }
@@ -228,6 +230,36 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = viewModel::dismissClearHistoryDialog) {
+                    Text("Cancel", color = ColorTextSecondary)
+                }
+            }
+        )
+    }
+
+    pendingDeleteContact?.let { contact ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteContact = null },
+            containerColor = ColorSurfaceElevated,
+            title = { Text("Remove Contact", style = RakshaTypography.headlineMedium) },
+            text = {
+                Text(
+                    "Delete ${contact.name} from trusted contacts?",
+                    style = RakshaTypography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteContact(contact)
+                        pendingDeleteContact = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ColorDanger)
+                ) {
+                    Text("Delete", color = ColorTextPrimary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteContact = null }) {
                     Text("Cancel", color = ColorTextSecondary)
                 }
             }

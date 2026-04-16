@@ -258,6 +258,17 @@ fun HomeScreen(
                 )
             }
 
+            state.evidenceStreamStatusMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = RakshaTypography.bodyMedium.copy(color = ColorTextSecondary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(ColorSurfaceElevated.copy(alpha = 0.95f), RakshaShapes.medium)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+
             Button(
                 onClick = onNavigateSafely,
                 modifier = Modifier
@@ -288,13 +299,15 @@ fun HomeScreen(
                 )
 
                 SosButton(
-                    onSosTriggered = viewModel::triggerManualSos,
-                    isActive = state.shieldActive
+                    onLongHoldConfirmed = viewModel::triggerSosFromLongHold,
+                    onTripleTapDetected = viewModel::triggerSosFromTripleTap,
+                    isActive = state.shieldActive,
+                    isBusy = state.isSosInProgress
                 )
             }
 
             Text(
-                text = "Press and hold SOS for 1.5 seconds",
+                text = "Hold SOS for 1.5s or tap 3 times quickly",
                 style = RakshaTypography.labelMedium,
                 color = ColorTextSecondary
             )

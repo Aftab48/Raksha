@@ -22,6 +22,7 @@ data class OnboardingUiState(
     val phoneError: String? = null,
     val contactSyncMessage: String? = null,
     val contactSyncError: String? = null,
+    val deletingContactId: Int? = null,
     val isComplete: Boolean = false,
     val isSaving: Boolean = false
 )
@@ -129,11 +130,13 @@ class OnboardingViewModel @Inject constructor(
 
     fun removeContact(contact: TrustedContactEntity) {
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(deletingContactId = contact.id)
             contactRepository.deleteContact(contact).fold(
                 onSuccess = {
                     _uiState.value = _uiState.value.copy(
                         contactSyncMessage = "Trusted contact removed",
-                        contactSyncError = null
+                        contactSyncError = null,
+                        deletingContactId = null
                     )
                 },
                 onFailure = { throwable ->
@@ -141,12 +144,14 @@ class OnboardingViewModel @Inject constructor(
                     if (message.startsWith("Removed locally")) {
                         _uiState.value = _uiState.value.copy(
                             contactSyncMessage = message,
-                            contactSyncError = null
+                            contactSyncError = null,
+                            deletingContactId = null
                         )
                     } else {
                         _uiState.value = _uiState.value.copy(
                             contactSyncError = message,
-                            contactSyncMessage = null
+                            contactSyncMessage = null,
+                            deletingContactId = null
                         )
                     }
                 }

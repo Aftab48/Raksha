@@ -171,6 +171,7 @@ class ShieldForegroundService : Service() {
         serviceScope.launch {
             val eventId = activeSosEventId ?: return@launch
             sosRepository.resolveEvent(eventId)
+            runCatching { startService(EvidenceStreamingService.stopIntent(this@ShieldForegroundService)) }
 
             val location = locationUtils.getLastKnownLocation()
             val contacts = contactRepository.getContactsOnce()

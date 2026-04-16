@@ -6,12 +6,15 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
+import com.raksha.app.BuildConfig
 import com.raksha.app.data.assets.NcrbDataSource
 import com.raksha.app.data.assets.NcrbDistrict
 import com.raksha.app.repository.SosRepository
 import com.raksha.app.repository.TrustedContactRepository
 import com.raksha.app.repository.UserRepository
+import com.raksha.app.service.EvidenceStreamingService
 import com.raksha.app.service.ShieldForegroundService
+import com.raksha.app.utils.HapticUtils
 import com.raksha.app.utils.LocationUtils
 import com.raksha.app.utils.PermissionUtils
 import com.raksha.app.utils.SmsUtils
@@ -33,8 +36,15 @@ data class HomeUiState(
     val hasMinimumContacts: Boolean = false,
     val userName: String = "",
     val statusMessage: String? = null,
-    val isSosInProgress: Boolean = false
+    val isSosInProgress: Boolean = false,
+    val isEvidenceStreaming: Boolean = false,
+    val evidenceStreamStatusMessage: String? = null
 )
+
+private enum class ManualSosTrigger {
+    LONG_HOLD,
+    TRIPLE_TAP
+}
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -44,7 +54,8 @@ class HomeViewModel @Inject constructor(
     private val sosRepository: SosRepository,
     private val contactRepository: TrustedContactRepository,
     private val userRepository: UserRepository,
-    private val smsUtils: SmsUtils
+    private val smsUtils: SmsUtils,
+    private val hapticUtils: HapticUtils
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -75,7 +86,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshShieldState() {
-        _uiState.value = _uiState.value.copy(shieldActive = ShieldForegroundService.isRunning)
+        _uiState.value = _uiState.value.copy(
+            shieldActive = ShieldForegroundService.isRunning,
+            isEvidenceStreaming = EvidenceStreamingService.isRunning
+        )
     }
 
     fun fetchCurrentLocation() {
@@ -93,7 +107,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun clearStatusMessage() {
-        _uiState.value = _uiState.value.copy(statusMessage = null)
+        _uiState.value = _uiState.value.copy(
+            statusMessage = null,
+            evidenceStreamStatusMessage = null
+        )
     }
 
     fun toggleShield() {
@@ -144,7 +161,17 @@ class HomeViewModel @Inject constructor(
         )
     }
 
-    fun triggerManualSos() {
+    fun triggerSosFromLongHold() {
+        triggerManualSos(ManualSosTrigger.LONG_HOLD)
+    }
+
+    fun triggerSosFromTripleTap() {
+        triggerManualSos(ManualSosTrigger.TRIPLE_TAP)
+    }
+
+    private fun triggerManualSos(trigger: ManualSosTrigger) {
+        if (_uiState.value.isSosInProgress) return
+
         if (!PermissionUtils.hasSosPermissions(context)) {
             _uiState.value = _uiState.value.copy(
                 statusMessage = "Location, SMS, and phone call permissions are required for SOS."
@@ -184,10 +211,26 @@ class HomeViewModel @Inject constructor(
                 }
                 context.startActivity(callIntent)
 
+                val evidenceStatus = if (trigger == ManualSosTrigger.TRIPLE_TAP) {
+                    startEvidenceStreamingIfAvailable(
+                        sosEventId = eventId.toInt(),
+                        lat = lat,
+                        lng = lng
+                    )
+                } else {
+                    null
+                }
+
+                when (trigger) {
+                    ManualSosTrigger.LONG_HOLD -> hapticUtils.vibrateConfirmation()
+                    ManualSosTrigger.TRIPLE_TAP -> hapticUtils.vibrateEmergencyPattern()
+                }
+
                 _uiState.value = _uiState.value.copy(
                     sosTriggerActive = true,
                     activeSosEventId = eventId.toInt(),
                     statusMessage = "SOS triggered. Contacting emergency services...",
+                    evidenceStreamStatusMessage = evidenceStatus,
                     isSosInProgress = false
                 )
             } catch (e: Exception) {
@@ -199,7 +242,42 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun startEvidenceStreamingIfAvailable(
+        sosEventId: Int,
+        lat: Double,
+        lng: Double
+    ): String {
+        if (!PermissionUtils.hasEvidenceStreamingPermissions(context)) {
+            _uiState.value = _uiState.value.copy(isEvidenceStreaming = false)
+            return "SOS sent. Grant camera and microphone access to share evidence."
+        }
+
+        if (BuildConfig.MOCK_POLICE_STREAM_URL.isBlank()) {
+            _uiState.value = _uiState.value.copy(isEvidenceStreaming = false)
+            return "SOS sent. Evidence sharing endpoint is not configured."
+        }
+
+        return runCatching {
+            context.startForegroundService(
+                EvidenceStreamingService.startIntent(
+                    context = context,
+                    sosEventId = sosEventId,
+                    fallbackLat = lat,
+                    fallbackLng = lng
+                )
+            )
+            _uiState.value = _uiState.value.copy(isEvidenceStreaming = true)
+            "SOS sent. Sharing front camera and audio with emergency endpoint."
+        }.getOrElse {
+            _uiState.value = _uiState.value.copy(isEvidenceStreaming = false)
+            "SOS sent. Could not start evidence sharing: ${it.message ?: "unknown error"}"
+        }
+    }
+
     fun onSosNavigated() {
-        _uiState.value = _uiState.value.copy(sosTriggerActive = false)
+        _uiState.value = _uiState.value.copy(
+            sosTriggerActive = false,
+            isEvidenceStreaming = EvidenceStreamingService.isRunning
+        )
     }
 }
