@@ -1,0 +1,37 @@
+# IDE / Editor
+*.iml
+.idea/
+.vscode/
+.cursor/
+
+# Gradle / Kotlin local caches
+.gradle/
+.kotlin/
+
+# Local config / secrets
+local.properties
+local.properties.*
+!local.properties.template
+*.jks
+*.keystore
+google-services.json
+
+# Android build/debug outputs
+/build/
+**/build/
+/captures/
+**/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.hprof
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local helper scripts
+run-on-phone.ps1

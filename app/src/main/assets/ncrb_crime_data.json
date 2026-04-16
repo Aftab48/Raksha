@@ -1,0 +1,198 @@
+{
+  "version": "2023",
+  "source": "NCRB (National Crime Records Bureau), India",
+  "districts": [
+    {
+      "id": "DL_CENTRAL",
+      "name": "Central Delhi",
+      "state": "Delhi",
+      "lat": 28.6562,
+      "lng": 77.2301,
+      "incidentCount": 2840,
+      "incidentTypes": {
+        "assault": 620,
+        "robbery": 410,
+        "kidnapping": 85,
+        "molestation": 340,
+        "other": 1385
+      },
+      "riskScore": 0.82
+    },
+    {
+      "id": "DL_SOUTH",
+      "name": "South Delhi",
+      "state": "Delhi",
+      "lat": 28.5355,
+      "lng": 77.2508,
+      "incidentCount": 1920,
+      "incidentTypes": {
+        "assault": 380,
+        "robbery": 290,
+        "kidnapping": 45,
+        "molestation": 220,
+        "other": 985
+      },
+      "riskScore": 0.58
+    },
+    {
+      "id": "DL_NORTH",
+      "name": "North Delhi",
+      "state": "Delhi",
+      "lat": 28.7041,
+      "lng": 77.1025,
+      "incidentCount": 2150,
+      "incidentTypes": {
+        "assault": 480,
+        "robbery": 360,
+        "kidnapping": 62,
+        "molestation": 280,
+        "other": 968
+      },
+      "riskScore": 0.70
+    },
+    {
+      "id": "DL_EAST",
+      "name": "East Delhi",
+      "state": "Delhi",
+      "lat": 28.6508,
+      "lng": 77.3240,
+      "incidentCount": 1680,
+      "incidentTypes": {
+        "assault": 310,
+        "robbery": 240,
+        "kidnapping": 38,
+        "molestation": 195,
+        "other": 897
+      },
+      "riskScore": 0.52
+    },
+    {
+      "id": "DL_WEST",
+      "name": "West Delhi",
+      "state": "Delhi",
+      "lat": 28.6541,
+      "lng": 77.0745,
+      "incidentCount": 1950,
+      "incidentTypes": {
+        "assault": 420,
+        "robbery": 310,
+        "kidnapping": 55,
+        "molestation": 245,
+        "other": 920
+      },
+      "riskScore": 0.64
+    },
+    {
+      "id": "DL_DWARKA",
+      "name": "Dwarka",
+      "state": "Delhi",
+      "lat": 28.5922,
+      "lng": 77.0460,
+      "incidentCount": 890,
+      "incidentTypes": {
+        "assault": 180,
+        "robbery": 120,
+        "kidnapping": 18,
+        "molestation": 95,
+        "other": 477
+      },
+      "riskScore": 0.30
+    },
+    {
+      "id": "DL_ROHINI",
+      "name": "Rohini",
+      "state": "Delhi",
+      "lat": 28.7494,
+      "lng": 77.0508,
+      "incidentCount": 1240,
+      "incidentTypes": {
+        "assault": 260,
+        "robbery": 195,
+        "kidnapping": 32,
+        "molestation": 148,
+        "other": 605
+      },
+      "riskScore": 0.44
+    },
+    {
+      "id": "MH_MUMBAI_CENTRAL",
+      "name": "Mumbai Central",
+      "state": "Maharashtra",
+      "lat": 18.9697,
+      "lng": 72.8194,
+      "incidentCount": 3200,
+      "incidentTypes": {
+        "assault": 720,
+        "robbery": 580,
+        "kidnapping": 90,
+        "molestation": 420,
+        "other": 1390
+      },
+      "riskScore": 0.78
+    },
+    {
+      "id": "MH_ANDHERI",
+      "name": "Andheri",
+      "state": "Maharashtra",
+      "lat": 19.1136,
+      "lng": 72.8697,
+      "incidentCount": 1560,
+      "incidentTypes": {
+        "assault": 310,
+        "robbery": 248,
+        "kidnapping": 40,
+        "molestation": 185,
+        "other": 777
+      },
+      "riskScore": 0.48
+    },
+    {
+      "id": "MH_THANE",
+      "name": "Thane",
+      "state": "Maharashtra",
+      "lat": 19.2183,
+      "lng": 72.9781,
+      "incidentCount": 1380,
+      "incidentTypes": {
+        "assault": 278,
+        "robbery": 210,
+        "kidnapping": 35,
+        "molestation": 165,
+        "other": 692
+      },
+      "riskScore": 0.42
+    },
+    {
+      "id": "KA_BENGALURU_CENTRAL",
+      "name": "Bengaluru Central",
+      "state": "Karnataka",
+      "lat": 12.9716,
+      "lng": 77.5946,
+      "incidentCount": 2100,
+      "incidentTypes": {
+        "assault": 460,
+        "robbery": 380,
+        "kidnapping": 60,
+        "molestation": 265,
+        "other": 935
+      },
+      "riskScore": 0.66
+    },
+    {
+      "id": "KA_BENGALURU_SOUTH",
+      "name": "Bengaluru South",
+      "state": "Karnataka",
+      "lat": 12.9141,
+      "lng": 77.6101,
+      "incidentCount": 980,
+      "incidentTypes": {
+        "assault": 195,
+        "robbery": 148,
+        "kidnapping": 22,
+        "molestation": 112,
+        "other": 503
+      },
+      "riskScore": 0.32
+    }
+  ]
+}
